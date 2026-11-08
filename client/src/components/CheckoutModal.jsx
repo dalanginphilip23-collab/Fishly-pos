@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { useCart } from '../context/Cart'
 import { money } from '../utils'
@@ -15,6 +15,9 @@ export default function CheckoutModal({ onClose, onDone }) {
   const [order, setOrder] = useState(null)
   const [note, setNote] = useState('')
   const [confirmed, setConfirmed] = useState(false)
+  const [customerId, setCustomerId] = useState('')
+  const [customers, setCustomers] = useState([])
+  useEffect(() => { api('/customers').then(setCustomers).catch(() => {}) }, [])
   const submitting = useRef(false)
 
   const validAmount = (value) => Number.isFinite(Number(value)) && Number(value) >= 0 && Math.abs(Number(value) * 100 - Math.round(Number(value) * 100)) < 0.00001
@@ -41,6 +44,7 @@ export default function CheckoutModal({ onClose, onDone }) {
           expected_subtotal: total,
           cash_received: method === 'cash' ? Number(cash) : null,
           note: note.trim() || null,
+          customer_id: customerId ? Number(customerId) : null,
         },
       })
       dispatch({ type: 'clear' })
@@ -99,6 +103,12 @@ export default function CheckoutModal({ onClose, onDone }) {
               </div>
             )}
             {method === 'gcash' && <label className="flex items-start gap-3 rounded-xl bg-blue-50 p-3 text-sm"><input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="mt-1 h-4 w-4" /><span>I verified that {money(due)} was received in the merchant’s GCash account.</span></label>}
+            <label className="grid gap-1 text-sm font-bold">Customer <span className="font-normal text-slate-400">Optional</span>
+              <select className="field" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+                <option value="">Walk-in customer</option>
+                {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </label>
             <label className="grid gap-1 text-sm font-bold">Sale note <span className="font-normal text-slate-400">Optional</span><textarea className="field resize-none" rows="2" maxLength="200" placeholder="Add a note for this sale" value={note} onChange={(e) => setNote(e.target.value)} /></label>
             {error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm font-bold text-coral">{error}</p>}
             <div className="flex gap-2">

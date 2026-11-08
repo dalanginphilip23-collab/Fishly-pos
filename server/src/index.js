@@ -5,7 +5,13 @@ import authRoutes from './routes/auth.js'
 import productRoutes from './routes/products.js'
 import orderRoutes from './routes/orders.js'
 import reportRoutes from './routes/reports.js'
+import customerRoutes from './routes/customers.js'
+import stockRoutes from './routes/stock.js'
+import supplierRoutes from './routes/suppliers.js'
+import purchaseRoutes from './routes/purchases.js'
 import { photoDirectory } from './photos.js'
+import { ensureDefaultUsers } from './seed.js'
+import { migrateSchema } from './migrate.js'
 
 const app = express()
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'change-me') throw new Error('Set a strong JWT_SECRET in server/.env')
@@ -18,6 +24,10 @@ app.use('/api/auth', authRoutes)
 app.use('/api/products', productRoutes)
 app.use('/api/orders', orderRoutes)
 app.use('/api/reports', reportRoutes)
+app.use('/api/customers', customerRoutes)
+app.use('/api/stock', stockRoutes)
+app.use('/api/suppliers', supplierRoutes)
+app.use('/api/purchases', purchaseRoutes)
 app.use((_req, res) => res.status(404).json({ message: 'Endpoint not found' }))
 
 app.use((err, _req, res, _next) => {
@@ -28,4 +38,6 @@ app.use((err, _req, res, _next) => {
   res.status(err.status || 500).json({ message: err.status ? err.message : 'Server error' })
 })
 
+await migrateSchema()
+await ensureDefaultUsers()
 app.listen(process.env.PORT || 4000, () => console.log('API running on port', process.env.PORT || 4000))

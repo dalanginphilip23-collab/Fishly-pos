@@ -38,7 +38,7 @@ export default function Receipt({ order }) {
       // Measure the full-size offscreen copy, never the responsive modal preview.
       // CSS uses 96 px per inch. Round up and allow 2 mm for print rounding.
       const height = Math.ceil(Math.max(receipt.scrollHeight, receipt.getBoundingClientRect().height) * 25.4 / 96) + 2
-      pageStyleRef.current.textContent = `@media print { @page { size: ${paper}mm ${height}mm; margin: 0; } }`
+      pageStyleRef.current.textContent = `@page { size: ${paper}mm ${height}mm; margin: 0; }`
     }
     updatePageSize()
     const observer = new ResizeObserver(updatePageSize)

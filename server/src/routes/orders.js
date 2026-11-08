@@ -24,8 +24,15 @@ router.post('/', auth(['cashier']), async (req, res, next) => {
     const { payment_method, order_type = 'dine_in', discount = 0, cash_received = null } = req.body
     const items = cartItems(req.body.items)
     const note = req.body.note ? text(req.body.note, 'Note', 200) : null
+    const customerId = req.body.customer_id === undefined || req.body.customer_id === null || req.body.customer_id === ''
+      ? null
+      : integer(Number(req.body.customer_id), 'Customer ID', 1)
     if (order_type !== 'dine_in') throw fail(400, 'Only dine-in sales are supported')
     const result = await transaction(async (conn) => {
+      if (customerId) {
+        const [[customer]] = await conn.query('SELECT id FROM customers WHERE id = ?', [customerId])
+        if (!customer) throw fail(404, 'Customer not found')
+      }
       const [products] = await conn.query(
         'SELECT id, name, price, stock FROM products WHERE id IN (?) AND active = 1 ORDER BY id FOR UPDATE',
         [items.map((i) => i.productId)]
@@ -47,9 +54,9 @@ router.post('/', auth(['cashier']), async (req, res, next) => {
       }
       const { off, total, change } = payment(subtotal, discount, payment_method, cash_received)
       const [r] = await conn.query(
-        `INSERT INTO orders (order_no, order_type, payment_method, subtotal, discount, total, cash_received, change_due, note, cashier_id, status)
-         VALUES (?,?,?,?,?,?,?,?,?,?,'completed')`,
-        ['pending', order_type, payment_method, subtotal / 100, off, total, payment_method === 'cash' ? cash_received : null, change, note, req.user.id]
+        `INSERT INTO orders (order_no, order_type, payment_method, subtotal, discount, total, cash_received, change_due, note, cashier_id, customer_id, status)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,'completed')`,
+        ['pending', order_type, payment_method, subtotal / 100, off, total, payment_method === 'cash' ? cash_received : null, change, note, req.user.id, customerId]
       )
       const order_no = `FP-${String(r.insertId).padStart(6, '0')}`
       await conn.query('UPDATE orders SET order_no = ? WHERE id = ?', [order_no, r.insertId])
@@ -57,6 +64,7 @@ router.post('/', auth(['cashier']), async (req, res, next) => {
         lines.map((l) => [r.insertId, ...l]),
       ])
       for (const [id, , , qty] of lines) await conn.query('UPDATE products SET stock = stock - ? WHERE id = ?', [qty, id])
+      for (const [id, , , qty] of lines) await conn.query('INSERT INTO stock_adjustments (product_id, adjustment_type, quantity, reason, user_id) VALUES (?,?,?,?,?)', [id, 'remove', qty, `Sale ${order_no}`, req.user.id])
 
       const [[order]] = await conn.query('SELECT * FROM orders WHERE id = ?', [r.insertId])
       const [savedItems] = await conn.query('SELECT id, order_id, product_id, name, price, qty FROM order_items WHERE order_id = ?', [r.insertId])

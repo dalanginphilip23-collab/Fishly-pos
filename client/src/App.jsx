@@ -6,6 +6,9 @@ import Pos from './pages/Pos'
 import Orders from './pages/Orders'
 import Dashboard from './pages/Dashboard'
 import Products from './pages/Products'
+import Customers from './pages/Customers'
+import Stock from './pages/Stock'
+import Inventory from './pages/Inventory'
 
 function Guard({ cashier, children }) {
   const { user, ready } = useAuth()
@@ -24,6 +27,9 @@ export default function App() {
         <Route path="orders" element={<Orders />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="products" element={<Products />} />
+      <Route path="customers" element={<Customers />} />
+      <Route path="stock" element={<Stock />} />
+      <Route path="inventory" element={<Inventory />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

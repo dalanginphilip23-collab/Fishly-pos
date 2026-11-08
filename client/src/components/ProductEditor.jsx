@@ -5,7 +5,7 @@ import ProductPhoto from './ProductPhoto'
 
 export default function ProductEditor({ product, categories, onClose, onSaved }) {
   const editing = Boolean(product.id)
-  const [form, setForm] = useState({ category_id: '', code: '', name: '', price: '', unit_cost: '', stock: 0, photo_url: null, active: 1, ...product })
+  const [form, setForm] = useState({ category_id: '', code: '', name: '', price: '', unit_cost: '', stock: 0, reorder_level: 10, expiry_date: '', photo_url: null, active: 1, ...product })
   const [busy, setBusy] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
@@ -43,7 +43,10 @@ export default function ProductEditor({ product, categories, onClose, onSaved })
         name: form.name.trim(), code: form.code.trim(), category_id: Number(form.category_id),
         price: Number(form.price),
         unit_cost: form.unit_cost === '' || form.unit_cost === null || form.unit_cost === undefined ? null : Number(form.unit_cost),
-        stock: Number(form.stock), photo_url: form.photo_url, active: form.active ? 1 : 0,
+        stock: Number(form.stock),
+        reorder_level: form.reorder_level === '' || form.reorder_level === null || form.reorder_level === undefined ? 10 : Number(form.reorder_level),
+        expiry_date: form.expiry_date === '' || form.expiry_date === null || form.expiry_date === undefined ? null : form.expiry_date,
+        photo_url: form.photo_url, active: form.active ? 1 : 0,
       }
       // Editing a photo or price must not overwrite stock sold since opening the dialog.
       const body = editing ? Object.fromEntries(Object.entries(values).filter(([key, value]) => value !== product[key])) : values
@@ -71,6 +74,8 @@ export default function ProductEditor({ product, categories, onClose, onSaved })
           <label className="form-label">Selling price (₱)<input className="field" required type="number" min="0" max="99999999.99" step="0.01" placeholder="0.00" value={form.price} onChange={(e) => set('price', e.target.value)} /></label>
           <label className="form-label">Unit cost (₱, optional)<input className="field" type="number" min="0" max="99999999.99" step="0.01" placeholder="0.00" value={form.unit_cost ?? ''} onChange={(e) => set('unit_cost', e.target.value)} /><span className="text-xs font-normal text-slate-500">Used for estimated cost of goods and gross profit.</span></label>
           <label className="form-label">Stock on hand<input className="field" required type="number" min="0" max="2147483647" step="1" value={form.stock} onChange={(e) => set('stock', e.target.value)} /><span className="text-xs font-normal text-slate-500">Current available quantity, not the amount to add.</span></label>
+          <label className="form-label">Reorder level<input className="field" type="number" min="0" max="2147483647" step="1" value={form.reorder_level} onChange={(e) => set('reorder_level', e.target.value)} /><span className="text-xs font-normal text-slate-500">Low stock alert threshold.</span></label>
+          <label className="form-label">Expiry date<input className="field" type="date" value={form.expiry_date || ''} onChange={(e) => set('expiry_date', e.target.value)} /><span className="text-xs font-normal text-slate-500">Optional, for expiration reports.</span></label>
         </div>
         {editing && <label className="flex items-center gap-3 rounded-xl border border-slate-200 p-3"><input type="checkbox" checked={!!form.active} onChange={(e) => set('active', e.target.checked ? 1 : 0)} className="h-5 w-5 rounded accent-blue-600" /><span><span className="block text-sm font-bold">Show on cashier menu</span><span className="text-xs text-slate-500">Turn off to hide this item from new sales.</span></span></label>}
       </fieldset>

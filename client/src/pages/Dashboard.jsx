@@ -64,8 +64,11 @@ export default function Dashboard() {
   const cogs = Number(data?.cogs || 0)
 
   return (
-    <div className="admin-dashboard h-full overflow-y-auto p-4 md:p-7 lg:p-8">
-      <div className="mx-auto max-w-[1440px] space-y-6">
+    <div className="admin-dashboard relative h-full overflow-y-auto p-4 md:p-7 lg:p-8">
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-10">
+        <img src="/logo.jpg" alt="" className="h-[560px] w-[560px] rounded-full object-cover" />
+      </div>
+      <div className="relative mx-auto max-w-[1440px] space-y-6">
       <div className="workspace-heading flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3"><span className="workspace-heading-icon hidden sm:flex"><Icon name="chart" /></span><div><h1 className="page-title">Sales overview</h1><p className="page-subtitle">Track sales, expenses, and net profit.</p></div></div>
         <div className="flex flex-wrap items-center gap-2">

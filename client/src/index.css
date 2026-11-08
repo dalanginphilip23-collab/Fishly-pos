@@ -195,8 +195,8 @@ input[type='checkbox'] { accent-color: #0076b8; }
   pointer-events: none;
 }
 
+@page { margin: 0; }
 @media print {
-  @page { margin: 0; }
   html, body { height: auto !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important; background: white !important; }
   body > :not(#print-receipt) { display: none !important; }
   #print-receipt { display: block !important; visibility: visible; position: static; margin: 0; max-width: none; box-shadow: none; }

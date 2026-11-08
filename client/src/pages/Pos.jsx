@@ -20,6 +20,7 @@ const flavors = [
 ]
 
 function flavorLabel(product) {
+  if (!product || !product.name) return ''
   return flavors.find(([pattern]) => pattern.test(product.name))?.[1] || product.name
 }
 
@@ -29,6 +30,8 @@ export default function Pos() {
   const [categories, setCategories] = useState([])
   const [q, setQ] = useState('')
   const [groupID, setGroupID] = useState(null)
+  const [flavorSelection, setFlavorSelection] = useState({})
+  const [selectedFlavor, setSelectedFlavor] = useState(null)
   const [drawer, setDrawer] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -123,19 +126,26 @@ export default function Pos() {
   }, [products, categories, q, lines])
 
   const activeGroup = useMemo(() => groups.find((group) => group.id === groupID) || null, [groups, groupID])
+  useEffect(() => {
+    if (!activeGroup) return
+    const initial = {}
+    activeGroup.visible.forEach((product) => { initial[product.id] = 0 })
+    setFlavorSelection(initial)
+    setSelectedFlavor(activeGroup.visible[0]?.id ?? null)
+  }, [activeGroup])
   const choiceCount = groups.reduce((sum, group) => sum + group.visible.length, 0)
   const pickerCount = activeGroup ? activeGroup.visible.reduce((sum, product) => sum + qtyInOrder(product.id), 0) : 0
   const pickerTotal = activeGroup
     ? activeGroup.visible.reduce((sum, product) => sum + Math.round(Number(product.price) * 100) * qtyInOrder(product.id), 0) / 100
     : 0
 
-  const openGroup = (group) => {
-    if (group.visible.length === 1) addProduct(group.visible[0])
-    else setGroupID(group.id)
-  }
+  const openGroup = (group) => setGroupID(group.id)
 
   return (
-    <div className="workspace-surface flex h-full">
+    <div className="workspace-surface relative flex h-full">
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-10">
+        <img src="/logo.jpg" alt="" className="h-[560px] w-[560px] rounded-full object-cover" />
+      </div>
       <section inert={drawer ? '' : undefined} className="flex min-h-0 min-w-0 flex-1 flex-col p-3 sm:p-5 xl:p-6">
         <header className="workspace-heading mb-5 flex shrink-0 items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-3"><span className="workspace-heading-icon hidden sm:flex"><Icon name="register" /></span><div className="min-w-0"><h1 className="page-title">Register</h1><p className="page-subtitle">Choose a menu group, then pick a flavor.</p></div></div><div className="flex shrink-0 items-center gap-2"><span className="hidden whitespace-nowrap py-2 text-sm text-slate-500 xl:block">{new Date().toLocaleDateString('en-PH', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</span><button type="button" onClick={() => navigate('/dashboard')} className="btn-ghost flex items-center gap-2 text-sm" title="Open the admin workspace" aria-label="Open admin workspace"><Icon name="admin" /><span className="hidden sm:inline">Admin</span></button></div></header>
         <div className="relative mb-4 shrink-0"><Icon name="search" className="absolute left-4 top-3 text-slate-400" /><input aria-label="Search menu by flavor, product, or code" className="field !pl-12 !py-3" placeholder="Search a flavor or product…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
@@ -181,45 +191,40 @@ export default function Pos() {
         <div className="ml-auto flex min-h-0 w-full max-w-md flex-col border-l border-slate-200 bg-white lg:max-w-none"><CartPanel onClose={() => setDrawer(false)} onDone={load} /></div>
       </aside>
       {count > 0 && !drawer && <button onClick={() => setDrawer(true)} className="cart-launcher btn-primary fixed z-10 flex flex-wrap justify-between gap-2 shadow-lg lg:hidden"><span>View order ({count})</span><span>{money(total)}</span></button>}
-      {activeGroup && <Modal wide labelledBy="flavor-picker-title" onClose={() => setGroupID(null)}>
-        <header className="mb-5 flex items-start justify-between gap-4">
-          <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-wave">Choose a flavor</p>
-            <h2 id="flavor-picker-title" className="page-title">{activeGroup.name}</h2>
-            <p className="page-subtitle">{activeGroup.visible.length} {activeGroup.visible.length === 1 ? 'choice' : 'choices'} available</p>
-            <p className="mt-1 text-xs text-slate-500">Tap an option to add it to the current order.</p>
+      {activeGroup && <Modal labelledBy="flavor-picker-title" onClose={() => setGroupID(null)}>
+        <div className="space-y-3">
+          <header className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-wave">Choose a flavor</p>
+              <h2 id="flavor-picker-title" className="text-lg font-bold">{activeGroup.name}</h2>
+            </div>
+            <button type="button" aria-label="Close flavor choices" onClick={() => setGroupID(null)} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-foam text-lg text-slate-500 hover:bg-sky">×</button>
+          </header>
+          <div className="flex justify-center"><ProductPhoto src={activeGroup.photo} name={activeGroup.name} className="h-24 w-24 rounded-full" /></div>
+          <div className="flex flex-nowrap justify-center gap-2">
+            {activeGroup.visible.map((product) => {
+              const qty = qtyInOrder(product.id)
+              const remaining = Math.max(product.stock - qty, 0)
+              return (
+                <label key={product.id} className={`flex w-[80px] items-center justify-center gap-1 rounded-lg border px-1 py-1 ${selectedFlavor === product.id ? 'border-wave bg-sky/50 ring-1 ring-wave/20' : 'border-slate-200 bg-white'} ${remaining ? '' : 'opacity-60'}`}>
+                  <input type="radio" name="flavor" disabled={!remaining} checked={selectedFlavor === product.id} onChange={() => setSelectedFlavor(product.id)} className="h-3 w-3" />
+                  <span className="min-w-0 flex-1 whitespace-nowrap text-xs font-semibold">{flavorLabel(product)}</span>
+                </label>
+              )
+            })}
           </div>
-          <button type="button" aria-label="Close flavor choices" onClick={() => setGroupID(null)} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-foam text-xl text-slate-500 hover:bg-sky">×</button>
-        </header>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {activeGroup.visible.map((product) => {
-            const qty = qtyInOrder(product.id)
-            const remaining = Math.max(product.stock - qty, 0)
-            return <button
-              key={product.id}
-              type="button"
-              disabled={!remaining}
-              onClick={() => addProduct(product)}
-              aria-label={`Add ${product.name}${qty ? `, ${qty} already in order` : ''}`}
-              className={`flex min-w-0 items-center gap-3 rounded-xl border p-3 text-left transition ${qty ? 'border-wave bg-sky/50 ring-1 ring-wave/20' : 'border-slate-200 bg-white'} ${remaining ? 'hover:border-wave hover:bg-foam/60' : 'cursor-not-allowed opacity-60'}`}
-            >
-              <ProductPhoto src={product.photo_url} name={product.name} className="h-16 w-16" />
-              <span className="min-w-0 flex-1">
-                <span className="block break-words text-sm font-bold leading-snug">{flavorLabel(product)}</span>
-                <span className="mt-1 block text-xs text-slate-500">{money(product.price)} each</span>
-                <span className={`mt-1 block text-xs ${remaining > 0 && remaining <= 10 ? 'text-amber-700' : 'text-slate-500'}`}>{product.stock < 1 ? 'Sold out' : !remaining ? 'Stock limit reached' : `${remaining} available`}</span>
-                {qty > 0 && <span className="mt-1 block text-xs font-semibold text-wave">{qty} in order</span>}
-              </span>
-              <span aria-hidden="true" className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-bold ${qty ? 'bg-wave text-white' : remaining ? 'bg-sky text-wave' : 'bg-slate-100 text-slate-400'}`}>
-                {qty > 0 ? qty : <Icon name={remaining ? 'plus' : 'check'} className="!h-4 !w-4" />}
-              </span>
-            </button>
-          })}
+          <footer className="flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+            <p className="text-xs text-slate-500">{selectedFlavor ? flavorLabel(activeGroup.visible.find((p) => p.id === selectedFlavor) || {}) || 'None' : 'None'}</p>
+            <div className="flex gap-2">
+              <button type="button" className="btn-ghost text-xs" onClick={() => setGroupID(null)}>Cancel</button>
+              <button type="button" className="btn-primary text-xs" disabled={selectedFlavor === null} onClick={() => {
+                const product = activeGroup.visible.find((item) => item.id === selectedFlavor)
+                if (product) addProduct(product)
+                setGroupID(null)
+              }}>Confirm</button>
+            </div>
+          </footer>
         </div>
-        <footer className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
-          <div><p className="text-xs text-slate-500">In this group</p><p className="mt-1 text-sm font-bold">{pickerCount} {pickerCount === 1 ? 'item' : 'items'} · {money(pickerTotal)}</p></div>
-          <button type="button" className="btn-primary" onClick={() => setGroupID(null)}>Done</button>
-        </footer>
       </Modal>}
     </div>
   )

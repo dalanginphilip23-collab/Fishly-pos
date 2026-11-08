@@ -7,8 +7,9 @@ import Icon from '../components/Icon'
 
 function StockBadge({ product }) {
   const { active, stock } = product
-  const label = !active ? 'Hidden' : stock === 0 ? 'Sold out' : stock <= 10 ? 'Low stock' : 'In stock'
-  const color = !active ? 'bg-slate-100 text-slate-500' : stock === 0 ? 'bg-red-50 text-red-700' : stock <= 10 ? 'bg-amber-50 text-amber-700' : 'bg-foam text-slate-500'
+  const threshold = product.reorder_level || 10
+  const label = !active ? 'Hidden' : stock === 0 ? 'Sold out' : stock <= threshold ? 'Low stock' : 'In stock'
+  const color = !active ? 'bg-slate-100 text-slate-500' : stock === 0 ? 'bg-red-50 text-red-700' : stock <= threshold ? 'bg-amber-50 text-amber-700' : 'bg-foam text-slate-500'
   return <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold ${color}`}><span className="h-1.5 w-1.5 rounded-full bg-current" />{label}</span>
 }
 
@@ -35,7 +36,7 @@ export default function Products() {
   }, [])
   useEffect(() => { load() }, [load])
 
-  const lowStock = (p) => p.active && p.stock > 0 && p.stock <= 10
+  const lowStock = (p) => p.active && p.stock > 0 && p.stock <= (p.reorder_level || 10)
   const soldOut = (p) => p.active && p.stock === 0
   const shown = rows.filter((p) => `${p.name} ${p.code}`.toLowerCase().includes(query.trim().toLowerCase()) && (!category || p.category_id === Number(category)) && (filter === 'all' || (filter === 'low' && lowStock(p)) || (filter === 'out' && soldOut(p)) || (filter === 'hidden' && !p.active)))
   const categoryName = (id) => categories.find((c) => c.id === id)?.name || 'Uncategorized'

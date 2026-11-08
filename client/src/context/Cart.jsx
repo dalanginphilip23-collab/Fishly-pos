@@ -12,6 +12,14 @@ function reducer(lines, action) {
       if (!hit) return [...lines, { id: p.id, name: p.name, price: p.price, photo_url: p.photo_url, stock: p.stock, qty: 1 }]
       return lines.map((l) => (l.id === p.id ? { ...l, qty: Math.min(l.qty + 1, l.stock) } : l))
     }
+    case 'addQty': {
+      const p = action.product
+      const qty = Math.max(1, Math.min(Number(action.qty) || 1, p.stock))
+      if (p.stock < 1) return lines
+      const hit = lines.find((l) => l.id === p.id)
+      if (!hit) return [...lines, { id: p.id, name: p.name, price: p.price, photo_url: p.photo_url, stock: p.stock, qty }]
+      return lines.map((l) => (l.id === p.id ? { ...l, qty: Math.min(l.qty + qty, l.stock) } : l))
+    }
     case 'change':
       return lines
         .map((l) => (l.id === action.id ? { ...l, qty: Math.min(l.qty + action.by, l.stock) } : l))

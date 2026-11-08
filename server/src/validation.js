@@ -43,7 +43,7 @@ export function payment(subtotal, discount, method, cash) {
 
 export function productFields(body, partial = false) {
   const result = {}
-  for (const key of ['category_id', 'code', 'name', 'price', 'unit_cost', 'stock', 'active', 'photo_url']) {
+  for (const key of ['category_id', 'code', 'name', 'price', 'unit_cost', 'stock', 'reorder_level', 'expiry_date', 'active', 'photo_url']) {
     if (body[key] === undefined && (partial || key === 'active' || key === 'unit_cost' || key === 'photo_url')) continue
     const value = body[key] === undefined && key === 'stock' ? 0 : body[key]
     if (key === 'code' || key === 'name') result[key] = text(value, key, key === 'code' ? 20 : 100)
@@ -53,6 +53,11 @@ export function productFields(body, partial = false) {
     else if (key === 'active') {
       if (![0, 1].includes(value)) throw fail(400, 'Active must be 0 or 1')
       result[key] = value
+    } else if (key === 'reorder_level') result[key] = integer(value, 'Reorder level', 0)
+    else if (key === 'expiry_date') {
+      if (value === null || value === '') result[key] = null
+      else if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw fail(400, 'Expiry date must be YYYY-MM-DD')
+      else result[key] = value
     } else result[key] = integer(value, key, key === 'category_id' ? 1 : 0)
   }
   if (!Object.keys(result).length) throw fail(400, 'Nothing to update')

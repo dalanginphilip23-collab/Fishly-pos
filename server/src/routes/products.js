@@ -31,7 +31,7 @@ router.get('/', auth(), async (req, res, next) => {
     // The admin workspace uses the complete product list, including hidden items.
     const adminView = req.query.all === '1'
     const [rows] = await pool.query(
-      `SELECT id, category_id, code, name, price, stock, active, photo_url${adminView || req.user.role === 'admin' ? ', unit_cost' : ''} FROM products ${adminView ? '' : 'WHERE active = 1'} ORDER BY category_id, id`
+      `SELECT id, category_id, code, name, price, stock, reorder_level, expiry_date, active, photo_url${adminView || req.user.role === 'admin' ? ', unit_cost' : ''} FROM products ${adminView ? '' : 'WHERE active = 1'} ORDER BY category_id, id`
     )
     res.json(rows)
   } catch (e) { next(e) }
@@ -39,11 +39,11 @@ router.get('/', auth(), async (req, res, next) => {
 
 router.post('/', staff, async (req, res, next) => {
   try {
-    const { category_id, code, name, price, stock, unit_cost = null, photo_url = null } = productFields(req.body)
+    const { category_id, code, name, price, stock, reorder_level = 10, expiry_date = null, unit_cost = null, photo_url = null } = productFields(req.body)
     await verifyPhoto(photo_url)
     const [r] = await pool.query(
-      'INSERT INTO products (category_id, code, name, price, stock, unit_cost, photo_url) VALUES (?,?,?,?,?,?,?)',
-      [category_id, code, name, price, stock, unit_cost, photo_url]
+      'INSERT INTO products (category_id, code, name, price, stock, reorder_level, expiry_date, unit_cost, photo_url) VALUES (?,?,?,?,?,?,?,?,?)',
+      [category_id, code, name, price, stock, reorder_level, expiry_date, unit_cost, photo_url]
     )
     res.status(201).json({ id: r.insertId })
   } catch (e) {

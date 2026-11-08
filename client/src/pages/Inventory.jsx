@@ -1,0 +1,201 @@
+import { useCallback, useEffect, useState } from 'react'
+import { api } from '../api'
+import { money } from '../utils'
+import Modal from '../components/Modal'
+import Icon from '../components/Icon'
+
+const tabs = ['Stock', 'Movements', 'Purchases', 'Suppliers']
+
+export default function Inventory() {
+  const [tab, setTab] = useState('Stock')
+  const [products, setProducts] = useState([])
+  const [movements, setMovements] = useState([])
+  const [purchases, setPurchases] = useState([])
+  const [suppliers, setSuppliers] = useState([])
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [purchaseOpen, setPurchaseOpen] = useState(false)
+  const [supplierOpen, setSupplierOpen] = useState(false)
+
+  const load = useCallback(async () => {
+    setError('')
+    setLoading(true)
+    try {
+      const [p, m, pu, s] = await Promise.all([
+        api('/products?all=1'),
+        api('/stock/adjustments'),
+        api('/purchases'),
+        api('/suppliers'),
+      ])
+      setProducts(p)
+      setMovements(m)
+      setPurchases(pu)
+      setSuppliers(s)
+    } catch (e) { setError(e.message) }
+    finally { setLoading(false) }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  return (
+    <div className="workspace-surface h-full overflow-y-auto p-4 md:p-7">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <header className="flex flex-wrap items-center justify-between gap-4">
+          <div><h1 className="page-title">Inventory</h1><p className="page-subtitle">Stock, movements, purchases, and suppliers.</p></div>
+          <div className="flex gap-2">
+            {tab === 'Purchases' && <button className="btn-primary inline-flex items-center gap-2" onClick={() => setPurchaseOpen(true)}><Icon name="plus" />New purchase</button>}
+            {tab === 'Suppliers' && <button className="btn-primary inline-flex items-center gap-2" onClick={() => setSupplierOpen(true)}><Icon name="plus" />Add supplier</button>}
+          </div>
+        </header>
+        {error && <div role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-coral">{error}</div>}
+        <div className="flex gap-2 border-b border-slate-200 pb-2">
+          {tabs.map((t) => <button key={t} onClick={() => setTab(t)} className={`rounded-lg px-3 py-2 text-sm font-semibold ${tab === t ? 'bg-sky text-wave' : 'text-slate-500 hover:bg-foam'}`}>{t}</button>)}
+        </div>
+        {loading ? <div className="p-16 text-center text-sm text-slate-500">Loading inventory…</div> : <>
+          {tab === 'Stock' && (
+            <section className="panel overflow-hidden">
+              <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+                <thead className="bg-foam text-[11px] uppercase tracking-wider text-slate-500"><tr>{['Product', 'Code', 'Stock', 'Reorder', 'Unit cost', 'Stock value', 'Expiry'].map((h, i) => <th key={i} className="px-5 py-3 font-semibold">{h}</th>)}</tr></thead>
+                <tbody className="divide-y divide-slate-100">{products.map((p) => (
+                  <tr key={p.id}>
+                    <td className="px-5 py-3 font-semibold">{p.name}</td>
+                    <td className="px-5 py-3">{p.code}</td>
+                    <td className="px-5 py-3">{p.stock}</td>
+                    <td className="px-5 py-3">{p.reorder_level}</td>
+                    <td className="px-5 py-3">{p.unit_cost == null ? '—' : money(p.unit_cost)}</td>
+                    <td className="px-5 py-3">{p.unit_cost == null ? '—' : money(Number(p.unit_cost) * Number(p.stock))}</td>
+                    <td className="px-5 py-3">{p.expiry_date || '—'}</td>
+                  </tr>
+                ))}</tbody>
+              </table></div>
+            </section>
+          )}
+          {tab === 'Movements' && (
+            <section className="panel overflow-hidden">
+              <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+                <thead className="bg-foam text-[11px] uppercase tracking-wider text-slate-500"><tr>{['Product', 'Type', 'Qty', 'Reason', 'By', 'Date'].map((h, i) => <th key={i} className="px-5 py-3 font-semibold">{h}</th>)}</tr></thead>
+                <tbody className="divide-y divide-slate-100">{movements.map((m) => (
+                  <tr key={m.id}>
+                    <td className="px-5 py-3 font-semibold">{m.product_name}</td>
+                    <td className="px-5 py-3">{m.adjustment_type}</td>
+                    <td className="px-5 py-3">{m.quantity}</td>
+                    <td className="px-5 py-3">{m.reason || '—'}</td>
+                    <td className="px-5 py-3">{m.user_name || '—'}</td>
+                    <td className="px-5 py-3">{new Date(m.created_at).toLocaleString()}</td>
+                  </tr>
+                ))}</tbody>
+              </table></div>
+              {!movements.length && <div className="p-8 text-center text-sm text-slate-500">No movements recorded.</div>}
+            </section>
+          )}
+          {tab === 'Purchases' && (
+            <section className="panel overflow-hidden">
+              <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+                <thead className="bg-foam text-[11px] uppercase tracking-wider text-slate-500"><tr>{['ID', 'Supplier', 'Reference', 'Total', 'By', 'Date'].map((h, i) => <th key={i} className="px-5 py-3 font-semibold">{h}</th>)}</tr></thead>
+                <tbody className="divide-y divide-slate-100">{purchases.map((p) => (
+                  <tr key={p.id}>
+                    <td className="px-5 py-3 font-semibold">#{p.id}</td>
+                    <td className="px-5 py-3">{p.supplier_name || '—'}</td>
+                    <td className="px-5 py-3">{p.reference || '—'}</td>
+                    <td className="px-5 py-3">{money(p.total)}</td>
+                    <td className="px-5 py-3">{p.user_name || '—'}</td>
+                    <td className="px-5 py-3">{new Date(p.created_at).toLocaleString()}</td>
+                  </tr>
+                ))}</tbody>
+              </table></div>
+              {!purchases.length && <div className="p-8 text-center text-sm text-slate-500">No purchases recorded.</div>}
+            </section>
+          )}
+          {tab === 'Suppliers' && (
+            <section className="panel overflow-hidden">
+              <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+                <thead className="bg-foam text-[11px] uppercase tracking-wider text-slate-500"><tr>{['Name', 'Phone', 'Email', 'Address'].map((h, i) => <th key={i} className="px-5 py-3 font-semibold">{h}</th>)}</tr></thead>
+                <tbody className="divide-y divide-slate-100">{suppliers.map((s) => (
+                  <tr key={s.id}>
+                    <td className="px-5 py-3 font-semibold">{s.name}</td>
+                    <td className="px-5 py-3">{s.phone || '—'}</td>
+                    <td className="px-5 py-3">{s.email || '—'}</td>
+                    <td className="px-5 py-3">{s.address || '—'}</td>
+                  </tr>
+                ))}</tbody>
+              </table></div>
+              {!suppliers.length && <div className="p-8 text-center text-sm text-slate-500">No suppliers yet.</div>}
+            </section>
+          )}
+        </>}
+      </div>
+      {purchaseOpen && <PurchaseModal products={products} suppliers={suppliers} onClose={() => setPurchaseOpen(false)} onSave={async (form) => { await api('/purchases', { method: 'POST', body: form }); setPurchaseOpen(false); await load() }} />}
+      {supplierOpen && <SupplierModal onClose={() => setSupplierOpen(false)} onSave={async (form) => { await api('/suppliers', { method: 'POST', body: form }); setSupplierOpen(false); await load() }} />}
+    </div>
+  )
+}
+
+function PurchaseModal({ products, suppliers, onClose, onSave }) {
+  const [supplierId, setSupplierId] = useState('')
+  const [reference, setReference] = useState('')
+  const [notes, setNotes] = useState('')
+  const [items, setItems] = useState([{ productId: products[0]?.id || '', qty: 1, unitCost: '' }])
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  const submit = async (e) => {
+    e.preventDefault()
+    setBusy(true)
+    setError('')
+    try {
+      await onSave({
+        supplier_id: supplierId ? Number(supplierId) : null,
+        reference: reference || null,
+        notes: notes || null,
+        items: items.map((i) => ({ productId: Number(i.productId), qty: Number(i.qty), unit_cost: i.unitCost === '' ? null : Number(i.unitCost) })),
+      })
+    } catch (err) { setError(err.message) }
+    finally { setBusy(false) }
+  }
+
+  return (
+    <Modal onClose={onClose} labelledBy="purchase-title" wide>
+      <h2 id="purchase-title" className="text-lg font-bold">New purchase</h2>
+      <form className="mt-4 space-y-3" onSubmit={submit}>
+        <select className="field" value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
+          <option value="">No supplier</option>
+          {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+        <input className="field" placeholder="Reference (optional)" value={reference} onChange={(e) => setReference(e.target.value)} />
+        {items.map((item, idx) => (
+          <div key={idx} className="grid gap-2 sm:grid-cols-3">
+            <select className="field" value={item.productId} onChange={(e) => setItems(items.map((it, i) => i === idx ? { ...it, productId: e.target.value } : it))}>
+              {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <input className="field" type="number" min="1" placeholder="Qty" value={item.qty} onChange={(e) => setItems(items.map((it, i) => i === idx ? { ...it, qty: e.target.value } : it))} />
+            <input className="field" type="number" step="0.01" placeholder="Unit cost" value={item.unitCost} onChange={(e) => setItems(items.map((it, i) => i === idx ? { ...it, unitCost: e.target.value } : it))} />
+          </div>
+        ))}
+        <button type="button" className="btn-ghost text-xs" onClick={() => setItems([...items, { productId: products[0]?.id || '', qty: 1, unitCost: '' }])}>Add line</button>
+        <textarea className="field" placeholder="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        {error && <p role="alert" className="text-sm text-coral">{error}</p>}
+        <div className="flex justify-end gap-2"><button type="button" className="btn-ghost" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Receive stock'}</button></div>
+      </form>
+    </Modal>
+  )
+}
+
+function SupplierModal({ onClose, onSave }) {
+  const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', notes: '' })
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  return (
+    <Modal onClose={onClose} labelledBy="supplier-title">
+      <h2 id="supplier-title" className="text-lg font-bold">Add supplier</h2>
+      <form className="mt-4 space-y-3" onSubmit={async (e) => { e.preventDefault(); setBusy(true); setError(''); try { await onSave(form); } catch (err) { setError(err.message) } finally { setBusy(false) } }}>
+        <input className="field" placeholder="Name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        <input className="field" placeholder="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+        <input className="field" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+        <input className="field" placeholder="Address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+        <textarea className="field" placeholder="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+        {error && <p role="alert" className="text-sm text-coral">{error}</p>}
+        <div className="flex justify-end gap-2"><button type="button" className="btn-ghost" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button></div>
+      </form>
+    </Modal>
+  )
+}
