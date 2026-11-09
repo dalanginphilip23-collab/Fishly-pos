@@ -45,7 +45,7 @@ export function productFields(body, partial = false) {
   const result = {}
   for (const key of ['category_id', 'code', 'name', 'price', 'is_combo', 'unit_cost', 'stock', 'reorder_level', 'expiry_date', 'active', 'photo_url']) {
     if (body[key] === undefined && (partial || key === 'active' || key === 'unit_cost' || key === 'photo_url' || key === 'expiry_date')) continue
-    const defaults = { stock: 0, reorder_level: 10 }
+    const defaults = { stock: 0, reorder_level: 10, is_combo: 0 }
     const value = body[key] === undefined && key in defaults ? defaults[key] : body[key]
     if (key === 'code' || key === 'name') result[key] = text(value, key, key === 'code' ? 20 : 100)
     else if (key === 'price') result[key] = cents(value, 'Price') / 100
@@ -60,7 +60,7 @@ export function productFields(body, partial = false) {
     } else if (key === 'reorder_level') result[key] = integer(value, 'Reorder level', 0)
     else if (key === 'expiry_date') {
       if (value === null || value === '') result[key] = null
-      else if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw fail(400, 'Expiry date must be YYYY-MM-DD')
+      else if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value) || !Number.isFinite(Date.parse(value)) || new Date(value).toISOString().slice(0, 10) !== value) throw fail(400, 'Expiry date must be a valid YYYY-MM-DD date')
       else result[key] = value
     } else result[key] = integer(value, key, key === 'category_id' ? 1 : 0)
   }

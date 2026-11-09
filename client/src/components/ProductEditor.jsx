@@ -11,6 +11,7 @@ export default function ProductEditor({ product, categories, onClose, onSaved })
   const [error, setError] = useState('')
   const fileInput = useRef(null)
   const locked = useRef(false)
+  const requestRef = useRef(crypto.randomUUID())
   const set = (key, value) => setForm((current) => ({ ...current, [key]: value }))
   const close = () => { if (!locked.current) onClose() }
 
@@ -41,6 +42,7 @@ export default function ProductEditor({ product, categories, onClose, onSaved })
     try {
       const values = {
         name: form.name.trim(), code: form.code.trim(), category_id: Number(form.category_id),
+        request_id: requestRef.current,
         price: Number(form.price),
         unit_cost: form.unit_cost === '' || form.unit_cost === null || form.unit_cost === undefined ? null : Number(form.unit_cost),
         stock: Number(form.stock),
@@ -50,6 +52,7 @@ export default function ProductEditor({ product, categories, onClose, onSaved })
       }
       // Editing a photo or price must not overwrite stock sold since opening the dialog.
       const body = editing ? Object.fromEntries(Object.entries(values).filter(([key, value]) => value !== product[key])) : values
+      if (editing && Object.keys(body).includes('stock')) body.expected_stock = Number(product.stock)
       if (!editing || Object.keys(body).length) await api(editing ? `/products/${product.id}` : '/products', { method: editing ? 'PUT' : 'POST', body })
       onSaved(`${editing ? 'Updated' : 'Added'} ${values.name}`)
     } catch (e) { setError(e.message) }

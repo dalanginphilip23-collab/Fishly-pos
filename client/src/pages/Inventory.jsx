@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { money } from '../utils'
 import Modal from '../components/Modal'
@@ -81,7 +81,7 @@ export default function Inventory() {
                     <td className="px-5 py-3">{m.quantity}</td>
                     <td className="px-5 py-3">{m.reason || '—'}</td>
                     <td className="px-5 py-3">{m.user_name || '—'}</td>
-                    <td className="px-5 py-3">{new Date(m.created_at).toLocaleString()}</td>
+                    <td className="px-5 py-3">{new Date(m.created_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}</td>
                   </tr>
                 ))}</tbody>
               </table></div>
@@ -91,15 +91,16 @@ export default function Inventory() {
           {tab === 'Purchases' && (
             <section className="panel overflow-hidden">
               <div className="overflow-x-auto"><table className="w-full text-left text-sm">
-                <thead className="bg-foam text-[11px] uppercase tracking-wider text-slate-500"><tr>{['ID', 'Supplier', 'Reference', 'Total', 'By', 'Date'].map((h, i) => <th key={i} className="px-5 py-3 font-semibold">{h}</th>)}</tr></thead>
+                <thead className="bg-foam text-[11px] uppercase tracking-wider text-slate-500"><tr>{['ID', 'Supplier', 'Reference', 'Total', 'Paid', 'By', 'Date'].map((h, i) => <th key={i} className="px-5 py-3 font-semibold">{h}</th>)}</tr></thead>
                 <tbody className="divide-y divide-slate-100">{purchases.map((p) => (
                   <tr key={p.id}>
                     <td className="px-5 py-3 font-semibold">#{p.id}</td>
                     <td className="px-5 py-3">{p.supplier_name || '—'}</td>
                     <td className="px-5 py-3">{p.reference || '—'}</td>
                     <td className="px-5 py-3">{money(p.total)}</td>
+                    <td className="px-5 py-3">{p.paid ? <span className="font-semibold text-emerald-700">Paid</span> : 'Unpaid'}</td>
                     <td className="px-5 py-3">{p.user_name || '—'}</td>
-                    <td className="px-5 py-3">{new Date(p.created_at).toLocaleString()}</td>
+                    <td className="px-5 py-3">{new Date(p.created_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}</td>
                   </tr>
                 ))}</tbody>
               </table></div>
@@ -134,19 +135,24 @@ function PurchaseModal({ products, suppliers, onClose, onSave }) {
   const [supplierId, setSupplierId] = useState('')
   const [reference, setReference] = useState('')
   const [notes, setNotes] = useState('')
+  const [paid, setPaid] = useState(true)
   const [items, setItems] = useState([{ productId: products[0]?.id || '', qty: 1, unitCost: '' }])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const requestRef = useRef(crypto.randomUUID())
 
   const submit = async (e) => {
     e.preventDefault()
+    if (busy) return
     setBusy(true)
     setError('')
     try {
       await onSave({
+        request_id: requestRef.current,
         supplier_id: supplierId ? Number(supplierId) : null,
         reference: reference || null,
         notes: notes || null,
+        paid,
         items: items.map((i) => ({ productId: Number(i.productId), qty: Number(i.qty), unit_cost: i.unitCost === '' ? null : Number(i.unitCost) })),
       })
     } catch (err) { setError(err.message) }
@@ -154,27 +160,40 @@ function PurchaseModal({ products, suppliers, onClose, onSave }) {
   }
 
   return (
-    <Modal onClose={onClose} labelledBy="purchase-title" wide>
+    <Modal onClose={() => { if (!busy) onClose() }} labelledBy="purchase-title" wide>
       <h2 id="purchase-title" className="text-lg font-bold">New purchase</h2>
       <form className="mt-4 space-y-3" onSubmit={submit}>
-        <select className="field" value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
-          <option value="">No supplier</option>
-          {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-        <input className="field" placeholder="Reference (optional)" value={reference} onChange={(e) => setReference(e.target.value)} />
+        <label className="form-label">Supplier
+          <select className="field" value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
+            <option value="">No supplier</option>
+            {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </label>
+        <label className="form-label">Reference <span className="font-normal text-slate-400">Optional</span>
+          <input className="field" maxLength="40" value={reference} onChange={(e) => setReference(e.target.value)} />
+        </label>
         {items.map((item, idx) => (
           <div key={idx} className="grid gap-2 sm:grid-cols-3">
-            <select className="field" value={item.productId} onChange={(e) => setItems(items.map((it, i) => i === idx ? { ...it, productId: e.target.value } : it))}>
-              {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-            <input className="field" type="number" min="1" placeholder="Qty" value={item.qty} onChange={(e) => setItems(items.map((it, i) => i === idx ? { ...it, qty: e.target.value } : it))} />
-            <input className="field" type="number" step="0.01" placeholder="Unit cost" value={item.unitCost} onChange={(e) => setItems(items.map((it, i) => i === idx ? { ...it, unitCost: e.target.value } : it))} />
+            <label className="form-label">Product
+              <select className="field" value={item.productId} onChange={(e) => setItems(items.map((it, i) => i === idx ? { ...it, productId: e.target.value } : it))}>
+                {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </label>
+            <label className="form-label">Quantity
+              <input className="field" type="number" min="1" value={item.qty} onChange={(e) => setItems(items.map((it, i) => i === idx ? { ...it, qty: e.target.value } : it))} />
+            </label>
+            <label className="form-label">Unit cost (₱)
+              <input className="field" type="number" min="0" step="0.01" value={item.unitCost} onChange={(e) => setItems(items.map((it, i) => i === idx ? { ...it, unitCost: e.target.value } : it))} />
+            </label>
           </div>
         ))}
         <button type="button" className="btn-ghost text-xs" onClick={() => setItems([...items, { productId: products[0]?.id || '', qty: 1, unitCost: '' }])}>Add line</button>
-        <textarea className="field" placeholder="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <label className="flex items-center gap-3 rounded-xl border border-slate-200 p-3 text-sm"><input type="checkbox" checked={paid} onChange={(e) => setPaid(e.target.checked)} className="h-4 w-4" /><span><span className="block font-bold">Paid now</span><span className="text-xs text-slate-500">Record this purchase as an expense in today’s profit report.</span></span></label>
+        <label className="form-label">Notes <span className="font-normal text-slate-400">Optional</span>
+          <textarea className="field" maxLength="500" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </label>
         {error && <p role="alert" className="text-sm text-coral">{error}</p>}
-        <div className="flex justify-end gap-2"><button type="button" className="btn-ghost" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Receive stock'}</button></div>
+        <div className="flex justify-end gap-2"><button type="button" className="btn-ghost" disabled={busy} onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Receive stock'}</button></div>
       </form>
     </Modal>
   )
@@ -188,11 +207,11 @@ function SupplierModal({ onClose, onSave }) {
     <Modal onClose={onClose} labelledBy="supplier-title">
       <h2 id="supplier-title" className="text-lg font-bold">Add supplier</h2>
       <form className="mt-4 space-y-3" onSubmit={async (e) => { e.preventDefault(); setBusy(true); setError(''); try { await onSave(form); } catch (err) { setError(err.message) } finally { setBusy(false) } }}>
-        <input className="field" placeholder="Name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <input className="field" placeholder="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-        <input className="field" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-        <input className="field" placeholder="Address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
-        <textarea className="field" placeholder="Notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+        <label className="form-label">Name<input className="field" required maxLength="120" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+        <label className="form-label">Phone<input className="field" maxLength="40" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></label>
+        <label className="form-label">Email<input className="field" type="email" maxLength="120" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
+        <label className="form-label">Address<input className="field" maxLength="255" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></label>
+        <label className="form-label">Notes<textarea className="field" maxLength="500" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></label>
         {error && <p role="alert" className="text-sm text-coral">{error}</p>}
         <div className="flex justify-end gap-2"><button type="button" className="btn-ghost" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button></div>
       </form>

@@ -9,10 +9,11 @@ function ReceiptContent({ order }) {
       <p>A Wavy Taste of Crunch!</p>
       <p className="receipt-number">{order.order_no}</p>
       <p>{order.order_type === 'dine_in' ? 'Dine in' : 'Take out'}</p>
-      <p>{new Date(order.created_at).toLocaleString('en-PH')}</p>
+      <p>{new Date(order.created_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}</p>
     </header>
     <hr />
     {order.status === 'cancelled' && <p className="receipt-cancelled">CANCELLED</p>}
+    {order.refund && <p className="receipt-cancelled">REFUNDED {order.refund.reason ? `· ${order.refund.reason}` : ''}</p>}
     {order.items.map((item) => <div key={item.id} className="receipt-row receipt-item">
       <span>{item.qty} × {item.name}<small>{money(item.price)} each</small></span>
       <span>{money(Math.round(item.price * 100) * item.qty / 100)}</span>
@@ -21,6 +22,7 @@ function ReceiptContent({ order }) {
     {order.discount > 0 && <><div className="receipt-row"><span>Subtotal</span><span>{money(order.subtotal)}</span></div><div className="receipt-row"><span>Discount</span><span>−{money(order.discount)}</span></div></>}
     <div className="receipt-row receipt-total"><span>TOTAL</span><span>{money(order.total)}</span></div>
     <div className="receipt-row"><span>{order.payment_method === 'cash' ? 'Cash' : 'GCash'}</span><span>{money(order.cash_received ?? order.total)}</span></div>
+    {order.payment_reference && <div className="receipt-row"><span>GCash ref.</span><span>{order.payment_reference}</span></div>}
     {order.change_due != null && <div className="receipt-row"><span>Change</span><span>{money(order.change_due)}</span></div>}
     <hr />
     <p className="receipt-thanks">Thank you! Come back soon.</p>

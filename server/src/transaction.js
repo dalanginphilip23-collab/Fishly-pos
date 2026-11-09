@@ -1,6 +1,7 @@
 import { pool } from './db.js'
 
 export async function transaction(work) {
+  for (let attempt = 0; ; attempt++) {
   const conn = await pool.getConnection()
   try {
     await conn.beginTransaction()
@@ -9,8 +10,10 @@ export async function transaction(work) {
     return result
   } catch (error) {
     await conn.rollback().catch(() => {})
+    if (error.code === 'ER_LOCK_DEADLOCK' && attempt < 2) continue
     throw error
   } finally {
     conn.release()
+  }
   }
 }

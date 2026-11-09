@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
-import { useCart } from '../context/Cart'
+import { useCart, availableInCart } from '../context/Cart'
 import { money } from '../utils'
 import CartPanel from '../components/CartPanel'
 import Icon from '../components/Icon'
 import Modal from '../components/Modal'
 import ProductPhoto from '../components/ProductPhoto'
+import ShiftBar from '../components/ShiftBar'
 
 // The category card already explains what is included (rice, drink, pieces),
 // so flavor choices only need the flavor word: Regular, Spicy, Barbecue.
@@ -31,11 +32,14 @@ export default function Pos() {
   const [q, setQ] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [groupID, setGroupID] = useState(null)
-  const [flavorSelection, setFlavorSelection] = useState({})
   const [selectedFlavor, setSelectedFlavor] = useState(null)
   const [drawer, setDrawer] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [adminOpen, setAdminOpen] = useState(false)
+  const [adminPin, setAdminPin] = useState('')
+  const [adminError, setAdminError] = useState('')
   const cartRef = useRef(null)
   const { dispatch, lines, count, total } = useCart()
 
@@ -78,8 +82,13 @@ export default function Pos() {
   const qtyInOrder = (id) => lines.find((line) => line.id === id)?.qty || 0
 
   const addProduct = (product) => {
-    if (product.stock - qtyInOrder(product.id) <= 0) return
+    if (availableInCart(product, lines) < 1) {
+      setNotice(`Not enough shared stock left for ${product.name}. Reduce the order or refresh the menu.`)
+      return false
+    }
+    setNotice('')
     dispatch({ type: 'add', product })
+    return true
   }
 
   // Group the menu by category so flavors share one card: Poppers opens
@@ -115,8 +124,8 @@ export default function Pos() {
         // Search results that point at one flavor behave like a single product card,
         // while a category match keeps the full flavor list.
         const prices = visible.map((product) => Number(product.price))
-        const totalStock = visible.reduce((sum, product) => sum + product.stock, 0)
-        const remaining = visible.reduce((sum, product) => sum + Math.max(product.stock - qtyInOrder(product.id), 0), 0)
+        const totalStock = visible.reduce((sum, product) => sum + availableInCart(product, lines), 0)
+        const remaining = visible.reduce((sum, product) => sum + availableInCart(product, lines), 0)
         const inCart = visible.reduce((sum, product) => sum + qtyInOrder(product.id), 0)
         return {
           ...group,
@@ -135,11 +144,8 @@ export default function Pos() {
   const activeGroup = useMemo(() => groups.find((group) => group.id === groupID) || null, [groups, groupID])
   useEffect(() => {
     if (!activeGroup) return
-    const initial = {}
-    activeGroup.visible.forEach((product) => { initial[product.id] = 0 })
-    setFlavorSelection(initial)
-    setSelectedFlavor(activeGroup.visible[0]?.id ?? null)
-  }, [activeGroup])
+    setSelectedFlavor(activeGroup.visible.find((product) => availableInCart(product, lines) > 0)?.id ?? null)
+  }, [activeGroup, lines])
   const choiceCount = groups.reduce((sum, group) => sum + group.visible.length, 0)
   const pickerCount = activeGroup ? activeGroup.visible.reduce((sum, product) => sum + qtyInOrder(product.id), 0) : 0
   const pickerTotal = activeGroup
@@ -165,7 +171,7 @@ export default function Pos() {
         <img src="/logo.jpg" alt="" className="h-[560px] w-[560px] rounded-full object-cover" />
       </div>
       <section inert={drawer ? '' : undefined} className="flex min-h-0 min-w-0 flex-1 flex-col p-3 sm:p-5 xl:p-6">
-        <header className="workspace-heading mb-5 flex shrink-0 items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-3"><span className="workspace-heading-icon hidden sm:flex"><Icon name="register" /></span><div className="min-w-0"><h1 className="page-title">Register</h1><p className="page-subtitle">Choose a menu group, then pick a flavor.</p></div></div><div className="flex shrink-0 items-center gap-2"><span className="hidden whitespace-nowrap py-2 text-sm text-slate-500 xl:block">{new Date().toLocaleDateString('en-PH', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</span><button type="button" onClick={() => navigate('/dashboard')} className="btn-ghost flex items-center gap-2 text-sm" title="Open the admin workspace" aria-label="Open admin workspace"><Icon name="admin" /><span className="hidden sm:inline">Admin</span></button></div></header>
+        <header className="workspace-heading mb-5 flex shrink-0 items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-3"><span className="workspace-heading-icon hidden sm:flex"><Icon name="register" /></span><div className="min-w-0"><h1 className="page-title">Register</h1><p className="page-subtitle">Choose a menu group, then pick a flavor.</p></div></div><div className="flex shrink-0 items-center gap-2"><span className="hidden whitespace-nowrap py-2 text-sm text-slate-500 xl:block">{new Date().toLocaleDateString('en-PH', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</span><button type="button" onClick={() => { setAdminError(''); setAdminPin(''); setAdminOpen(true) }} className="btn-ghost flex items-center gap-2 text-sm" title="Open the admin workspace" aria-label="Open admin workspace"><Icon name="admin" /><span className="hidden sm:inline">Admin</span></button></div></header>
         <div className="relative mb-3 shrink-0"><Icon name="search" className="absolute left-4 top-3 text-slate-400" /><input aria-label="Search menu by flavor, product, or code" className="field !pl-12 !py-3" placeholder="Search a flavor or product…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
         <div role="group" aria-label="Filter menu by category" className="mb-3 flex shrink-0 flex-wrap gap-2">
           <button type="button" aria-pressed={categoryFilter === 'all'} onClick={() => setCategoryFilter('all')} className={chip(categoryFilter === 'all')}>All</button>
@@ -173,6 +179,7 @@ export default function Pos() {
           {usedCategories.map((category) => <button key={category.id} type="button" aria-pressed={String(category.id) === categoryFilter} onClick={() => setCategoryFilter(String(category.id))} className={chip(String(category.id) === categoryFilter)}>{category.name}</button>)}
         </div>
         <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2 text-xs text-slate-500"><span><span className="font-semibold text-ocean">{q.trim() ? 'Search results' : 'Menu groups'}</span> · {groups.length} {groups.length === 1 ? 'group' : 'groups'} · {choiceCount} {choiceCount === 1 ? 'choice' : 'choices'}</span><button disabled={loading} className="rounded-lg px-2 py-1 font-semibold text-wave hover:bg-sky" onClick={load}>Refresh menu</button></div>
+        {notice && <div role="status" className="mb-3 flex items-center justify-between gap-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900"><span>{notice}</span><button className="font-bold underline" onClick={() => setNotice('')}>Dismiss</button></div>}
         {error && <div role="alert" className="mb-4 rounded-xl bg-red-50 p-4 text-sm text-coral">{error}<button className="ml-3 font-bold underline" onClick={load}>Try again</button></div>}
         <div className="min-h-0 flex-1 overflow-y-auto pb-24 pr-1 lg:pb-3">
           <div className="register-grid gap-3">
@@ -231,13 +238,12 @@ export default function Pos() {
           </div>
           <div className="flex flex-wrap justify-center gap-x-14 gap-y-3 rounded-xl bg-foam px-5 py-3">
             {activeGroup.visible.map((product) => {
-              const qty = qtyInOrder(product.id)
-              const remaining = Math.max(product.stock - qty, 0)
+              const remaining = availableInCart(product, lines)
               const selected = selectedFlavor === product.id
               return (
                 <label key={product.id} className={`flex cursor-pointer items-center gap-1.5 text-xs font-semibold ${remaining ? '' : 'cursor-not-allowed opacity-50'}`}>
-                  <input type="radio" name="flavor" disabled={!remaining} checked={selected} onChange={() => setSelectedFlavor(product.id)} className="h-3.5 w-3.5 accent-wave" />
-                  <span className={`whitespace-nowrap ${selected ? 'text-wave' : 'text-slate-700'}`}>{flavorLabel(product)}</span>
+                  <input type="radio" name="flavor" disabled={!remaining} checked={selected} onChange={() => setSelectedFlavor(product.id)} className="h-4 w-4 accent-wave" />
+                  <span className={`whitespace-nowrap ${selected ? 'text-wave' : 'text-slate-700'}`}>{flavorLabel(product)}{remaining > 0 && remaining <= 5 ? ` (${remaining} left)` : ''}</span>
                 </label>
               )
             })}
@@ -249,14 +255,31 @@ export default function Pos() {
             </div>
             <div className="flex shrink-0 gap-2">
               <button type="button" className="btn-ghost text-xs" onClick={() => setGroupID(null)}>Cancel</button>
-              <button type="button" className="btn-primary text-xs" disabled={selectedFlavor === null} onClick={() => {
+              <button type="button" className="btn-primary text-xs" disabled={selectedFlavor === null || !activeGroup.visible.some((product) => product.id === selectedFlavor && availableInCart(product, lines) > 0)} onClick={() => {
                 const product = activeGroup.visible.find((item) => item.id === selectedFlavor)
-                if (product) addProduct(product)
-                setGroupID(null)
+                if (product && addProduct(product)) setGroupID(null)
               }}>Confirm</button>
             </div>
           </footer>
         </div>
+      </Modal>}
+      {adminOpen && <Modal labelledBy="admin-pin-title" onClose={() => setAdminOpen(false)}>
+        <h2 id="admin-pin-title" className="text-xl font-bold">Administrator access</h2>
+        <p className="mt-1 text-sm text-slate-500">Enter the administrator PIN to open the management workspace.</p>
+        <form onSubmit={(e) => {
+          e.preventDefault()
+          if (adminPin === '0000') {
+            localStorage.setItem('fp_admin_unlocked', 'true')
+            setAdminOpen(false)
+            navigate('/dashboard')
+          } else {
+            setAdminError('Incorrect administrator PIN.')
+          }
+        }} className="mt-4 space-y-3">
+          <label className="form-label">Administrator PIN<input autoFocus required type="password" className="field" value={adminPin} onChange={(e) => { setAdminPin(e.target.value); setAdminError('') }} /></label>
+          {adminError && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-coral">{adminError}</p>}
+          <div className="flex gap-2"><button type="button" className="btn-ghost flex-1" onClick={() => setAdminOpen(false)}>Cancel</button><button disabled={!adminPin} className="btn-primary flex-1">Open admin</button></div>
+        </form>
       </Modal>}
     </div>
   )

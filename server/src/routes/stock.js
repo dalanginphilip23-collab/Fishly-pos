@@ -1,15 +1,14 @@
 import { Router } from 'express'
 import { pool, fail } from '../db.js'
 import { auth } from '../middleware/auth.js'
-import { transaction } from '../transaction.js'
 import { integer, text } from '../validation.js'
+import { mutate, lockInventory } from '../mutations.js'
 
 const router = Router()
-const staff = auth(['admin', 'cashier'])
-
+const manager = auth()
 const types = new Set(['add', 'remove', 'wastage', 'opening'])
 
-router.get('/adjustments', auth(), async (req, res, next) => {
+router.get('/adjustments', manager, async (req, res, next) => {
   try {
     const productId = req.query.product_id ? integer(Number(req.query.product_id), 'Product ID', 1) : null
     const params = []
@@ -25,25 +24,33 @@ router.get('/adjustments', auth(), async (req, res, next) => {
   } catch (e) { next(e) }
 })
 
-router.post('/adjustments', staff, async (req, res, next) => {
+router.post('/adjustments', manager, async (req, res, next) => {
   try {
     const productId = integer(Number(req.body.product_id), 'Product ID', 1)
     const adjustmentType = text(req.body.adjustment_type, 'Adjustment type', 20)
     if (!types.has(adjustmentType)) throw fail(400, 'Adjustment type must be add, remove, wastage, or opening')
-    const quantity = integer(Number(req.body.quantity), 'Quantity', 1)
+    const quantity = integer(Number(req.body.quantity), adjustmentType === 'opening' ? 'Counted stock' : 'Quantity', adjustmentType === 'opening' ? 0 : 1)
     const reason = req.body.reason ? text(req.body.reason, 'Reason', 200) : null
+    const expectedStock = req.body.expected_stock === undefined ? null : integer(Number(req.body.expected_stock), 'Expected stock', 0)
 
-    const result = await transaction(async (conn) => {
-      const [[product]] = await conn.query('SELECT id, name, stock FROM products WHERE id = ? FOR UPDATE', [productId])
+    const result = await mutate(req, `stock.adjust.${productId}`, async (conn) => {
+      await lockInventory(conn)
+      const [[product]] = await conn.query('SELECT id, name, stock, is_combo FROM products WHERE id = ? FOR UPDATE', [productId])
       if (!product) throw fail(404, 'Product not found')
-      let newStock = product.stock
-      if (adjustmentType === 'add' || adjustmentType === 'opening') newStock += quantity
-      else newStock -= quantity
+      if (product.is_combo) throw fail(400, 'A combo has no stock of its own. Adjust its included products.')
+      if (expectedStock !== null && expectedStock !== Number(product.stock)) {
+        throw fail(409, 'Stock changed while this form was open. Refresh and try again.')
+      }
+      const newStock = adjustmentType === 'add'
+        ? Number(product.stock) + quantity
+        : adjustmentType === 'opening'
+          ? quantity
+          : Number(product.stock) - quantity
       if (newStock < 0) throw fail(409, `Not enough stock for ${product.name}`)
       await conn.query('UPDATE products SET stock = ? WHERE id = ?', [newStock, productId])
       const [r] = await conn.query(
         'INSERT INTO stock_adjustments (product_id, adjustment_type, quantity, reason, user_id) VALUES (?,?,?,?,?)',
-        [productId, adjustmentType, quantity, reason, req.user.id]
+        [productId, adjustmentType, quantity, reason || (adjustmentType === 'opening' ? `Opening count: ${product.stock} to ${quantity}` : null), req.user.id]
       )
       return { id: r.insertId, product_id: productId, name: product.name, stock: newStock }
     })
@@ -51,7 +58,7 @@ router.post('/adjustments', staff, async (req, res, next) => {
   } catch (e) { next(e) }
 })
 
-router.get('/low-stock', auth(), async (req, res, next) => {
+router.get('/low-stock', manager, async (_req, res, next) => {
   try {
     const [rows] = await pool.query(
       `SELECT id, category_id, code, name, price, stock, reorder_level, expiry_date, active
@@ -61,7 +68,7 @@ router.get('/low-stock', auth(), async (req, res, next) => {
   } catch (e) { next(e) }
 })
 
-router.get('/expiring', auth(), async (req, res, next) => {
+router.get('/expiring', manager, async (req, res, next) => {
   try {
     const days = req.query.days ? integer(Number(req.query.days), 'Days', 1) : 30
     const [rows] = await pool.query(
@@ -75,7 +82,7 @@ router.get('/expiring', auth(), async (req, res, next) => {
   } catch (e) { next(e) }
 })
 
-router.get('/summary', auth(), async (req, res, next) => {
+router.get('/summary', manager, async (_req, res, next) => {
   try {
     const [[totals]] = await pool.query(
       `SELECT COUNT(*) total_products, COALESCE(SUM(stock),0) total_units, COALESCE(SUM(stock * COALESCE(unit_cost,0)),0) stock_value

@@ -20,6 +20,7 @@ export function AuthProvider({ children }) {
   }, [])
 
   const login = async (username, pin) => {
+    localStorage.removeItem('fp_admin_unlocked')
     const data = await api('/auth/login', { method: 'POST', body: { username, pin } })
     localStorage.setItem('fp_token', data.token)
     setUser(data.user)

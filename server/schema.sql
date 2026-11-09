@@ -7,7 +7,8 @@ CREATE TABLE users (
   name VARCHAR(80) NOT NULL,
   pin_hash VARCHAR(100) NOT NULL,
   role ENUM('admin','cashier') NOT NULL DEFAULT 'cashier',
-  active TINYINT(1) NOT NULL DEFAULT 1
+  active TINYINT(1) NOT NULL DEFAULT 1,
+  token_version INT NOT NULL DEFAULT 0
 );
 
 CREATE TABLE categories (
@@ -55,7 +56,7 @@ CREATE TABLE customers (
 CREATE TABLE stock_adjustments (
   id INT AUTO_INCREMENT PRIMARY KEY,
   product_id INT NOT NULL,
-  adjustment_type ENUM('add','remove','wastage','opening') NOT NULL,
+  adjustment_type ENUM('add','remove','wastage','opening','count') NOT NULL,
   quantity INT NOT NULL,
   reason VARCHAR(200) NULL,
   user_id INT NULL,
@@ -81,6 +82,7 @@ CREATE TABLE purchases (
   reference VARCHAR(40) NULL,
   status ENUM('received','draft') NOT NULL DEFAULT 'received',
   total DECIMAL(10,2) NOT NULL DEFAULT 0,
+  paid TINYINT NOT NULL DEFAULT 0,
   notes VARCHAR(500) NULL,
   user_id INT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -99,12 +101,29 @@ CREATE TABLE purchase_items (
   FOREIGN KEY (product_id) REFERENCES products(id)
 );
 
+CREATE TABLE shifts (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  opening_cash DECIMAL(10,2) NOT NULL,
+  counted_cash DECIMAL(10,2) NULL,
+  expected_cash DECIMAL(10,2) NULL,
+  variance DECIMAL(10,2) NULL,
+  counted_gcash DECIMAL(10,2) NULL,
+  expected_gcash DECIMAL(10,2) NULL,
+  notes VARCHAR(500) NULL,
+  opened_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  closed_at TIMESTAMP NULL,
+  INDEX (user_id, closed_at),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
 CREATE TABLE orders (
   id INT AUTO_INCREMENT PRIMARY KEY,
   order_no VARCHAR(20) NOT NULL,
   order_type ENUM('dine_in','take_out') NOT NULL DEFAULT 'dine_in',
   status ENUM('pending','preparing','ready','completed','cancelled') NOT NULL DEFAULT 'completed',
   payment_method ENUM('cash','gcash') NOT NULL,
+  payment_reference VARCHAR(80) NULL,
   subtotal DECIMAL(10,2) NOT NULL,
   discount DECIMAL(10,2) NOT NULL DEFAULT 0,
   total DECIMAL(10,2) NOT NULL,
@@ -113,11 +132,14 @@ CREATE TABLE orders (
   note VARCHAR(200) NULL,
   cashier_id INT NOT NULL,
   customer_id INT NULL,
+  shift_id INT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_created (created_at),
   INDEX idx_status (status),
+  INDEX idx_shift (shift_id),
   FOREIGN KEY (cashier_id) REFERENCES users(id),
-  FOREIGN KEY (customer_id) REFERENCES customers(id)
+  FOREIGN KEY (customer_id) REFERENCES customers(id),
+  FOREIGN KEY (shift_id) REFERENCES shifts(id)
 );
 
 CREATE TABLE order_items (
@@ -132,6 +154,43 @@ CREATE TABLE order_items (
   FOREIGN KEY (product_id) REFERENCES products(id)
 );
 
+CREATE TABLE order_stock (
+  order_id INT NOT NULL,
+  product_id INT NOT NULL,
+  quantity INT NOT NULL,
+  PRIMARY KEY (order_id, product_id),
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+  FOREIGN KEY (product_id) REFERENCES products(id)
+);
+
+CREATE TABLE refunds (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  order_id INT NOT NULL UNIQUE,
+  shift_id INT NULL,
+  user_id INT NOT NULL,
+  amount DECIMAL(10,2) NOT NULL,
+  payment_method VARCHAR(20) NOT NULL,
+  reference VARCHAR(80) NULL,
+  restock TINYINT NOT NULL,
+  reason VARCHAR(200) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (order_id) REFERENCES orders(id),
+  FOREIGN KEY (shift_id) REFERENCES shifts(id),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE cash_movements (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  shift_id INT NOT NULL,
+  user_id INT NOT NULL,
+  direction ENUM('in','out') NOT NULL,
+  amount DECIMAL(10,2) NOT NULL,
+  reason VARCHAR(200) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (shift_id) REFERENCES shifts(id),
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
 CREATE TABLE expenses (
   id INT AUTO_INCREMENT PRIMARY KEY,
   category VARCHAR(20) NOT NULL DEFAULT 'other',
@@ -142,8 +201,35 @@ CREATE TABLE expenses (
   unit_cost DECIMAL(10,2) NULL,
   amount DECIMAL(10,2) NOT NULL,
   receipt_url VARCHAR(255) NULL,
+  purchase_id INT NULL UNIQUE,
+  user_id INT NULL,
+  voided_at TIMESTAMP NULL,
+  voided_by INT NULL,
+  void_reason VARCHAR(200) NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (purchase_id) REFERENCES purchases(id),
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (voided_by) REFERENCES users(id)
+);
+
+CREATE TABLE mutation_requests (
+  user_id INT NOT NULL,
+  scope VARCHAR(40) NOT NULL,
+  request_id VARCHAR(64) NOT NULL,
+  payload_hash CHAR(64) NOT NULL,
+  response_json LONGTEXT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, scope, request_id)
+);
+
+CREATE TABLE expense_imports (
+  file_hash CHAR(64) PRIMARY KEY,
+  user_id INT NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE inventory_lock (id INT PRIMARY KEY);
+INSERT INTO inventory_lock (id) VALUES (1);
 
 INSERT INTO categories (id, name, sort_order) VALUES
   (1,'Poppers only (5 pcs)',1), (2,'Poppers with rice (5 pcs)',2), (3,'Poppers with rice + drink',3), (4,'Drinks',4), (5,'Pastillas',5);

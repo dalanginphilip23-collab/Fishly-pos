@@ -5,9 +5,9 @@ import { transaction } from '../transaction.js'
 import { text, integer } from '../validation.js'
 
 const router = Router()
-const staff = auth(['admin', 'cashier'])
+const manager = auth()
 
-router.get('/', auth(), async (req, res, next) => {
+router.get('/', manager, async (req, res, next) => {
   try {
     const q = (req.query.q || '').toString().trim()
     const params = []
@@ -23,7 +23,7 @@ router.get('/', auth(), async (req, res, next) => {
   } catch (e) { next(e) }
 })
 
-router.get('/:id', auth(), async (req, res, next) => {
+router.get('/:id', manager, async (req, res, next) => {
   try {
     const id = integer(Number(req.params.id), 'Supplier ID', 1)
     const [[supplier]] = await pool.query('SELECT * FROM suppliers WHERE id = ?', [id])
@@ -33,7 +33,7 @@ router.get('/:id', auth(), async (req, res, next) => {
   } catch (e) { next(e) }
 })
 
-router.post('/', staff, async (req, res, next) => {
+router.post('/', manager, async (req, res, next) => {
   try {
     const name = text(req.body.name, 'Name', 120)
     const phone = req.body.phone ? text(req.body.phone, 'Phone', 40) : null
@@ -45,7 +45,7 @@ router.post('/', staff, async (req, res, next) => {
   } catch (e) { next(e) }
 })
 
-router.put('/:id', staff, async (req, res, next) => {
+router.put('/:id', manager, async (req, res, next) => {
   try {
     const id = integer(Number(req.params.id), 'Supplier ID', 1)
     const values = {}
@@ -62,7 +62,7 @@ router.put('/:id', staff, async (req, res, next) => {
   } catch (e) { next(e) }
 })
 
-router.delete('/:id', auth(['admin']), async (req, res, next) => {
+router.delete('/:id', auth(), async (req, res, next) => {
   try {
     const id = integer(Number(req.params.id), 'Supplier ID', 1)
     await transaction(async (conn) => {

@@ -9,12 +9,13 @@ import Products from './pages/Products'
 import Customers from './pages/Customers'
 import Stock from './pages/Stock'
 import Inventory from './pages/Inventory'
+import Staff from './pages/Staff'
+import Shifts from './pages/Shifts'
 
-function Guard({ cashier, children }) {
+function Guard({ children }) {
   const { user, ready } = useAuth()
   if (!ready) return <div className="grid min-h-screen place-items-center text-sm text-slate-500" role="status">Opening your workspace…</div>
   if (!user) return <Navigate to="/login" replace />
-  if (cashier && user.role !== 'cashier') return <Navigate to="/dashboard" replace />
   return children
 }
 
@@ -23,13 +24,15 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route element={<Guard><Shell /></Guard>}>
-        <Route index element={<Guard cashier><Pos /></Guard>} />
+        <Route index element={<Pos />} />
         <Route path="orders" element={<Orders />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="products" element={<Products />} />
-      <Route path="customers" element={<Customers />} />
-      <Route path="stock" element={<Stock />} />
-      <Route path="inventory" element={<Inventory />} />
+        <Route path="customers" element={<Customers />} />
+        <Route path="stock" element={<Stock />} />
+        <Route path="inventory" element={<Inventory />} />
+        <Route path="staff" element={<Staff />} />
+        <Route path="shifts" element={<Shifts />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

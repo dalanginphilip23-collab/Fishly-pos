@@ -17,6 +17,7 @@ export default function ComboEditor({ combo, products, categories, onClose, onSa
   const [error, setError] = useState('')
   const fileInput = useRef(null)
   const locked = useRef(false)
+  const requestRef = useRef(crypto.randomUUID())
   const set = (key, value) => setForm((current) => ({ ...current, [key]: value }))
   const close = () => { if (!locked.current) onClose() }
 
@@ -62,6 +63,7 @@ export default function ComboEditor({ combo, products, categories, onClose, onSa
     try {
       const body = {
         name: form.name.trim(), code: form.code.trim(), category_id: Number(form.category_id),
+        request_id: requestRef.current,
         price: Number(form.price),
         stock: 0,
         reorder_level: 0,

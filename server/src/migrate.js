@@ -1,4 +1,5 @@
 import { pool } from './db.js'
+import { migrateLaunchSchema } from './launch-migration.js'
 
 async function columnExists(table, column) {
   const [rows] = await pool.query(
@@ -127,6 +128,7 @@ export async function migrateSchema() {
     console.log('Added expenses.unit')
   }
 
+  await migrateLaunchSchema()
   console.log('Inventory, customer and reporting schema ready.')
 }
 

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import { api, download, photoUrl } from '../api'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { api, download, openFile } from '../api'
 import { money } from '../utils'
 import BestSellers from '../components/BestSellers'
 import SalesCharts from '../components/SalesCharts'
@@ -15,11 +15,13 @@ export default function Dashboard() {
   const [uploading, setUploading] = useState(false)
   const [scanning, setScanning] = useState(false)
   const [scanMessage, setScanMessage] = useState('')
+  const [scanPreview, setScanPreview] = useState(null)
   const [error, setError] = useState('')
   const [exportError, setExportError] = useState('')
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const expenseRequest = useRef(crypto.randomUUID())
   const presets = [
     ['Today', today(), today()],
     ['Yesterday', shiftDate(today(), -1), shiftDate(today(), -1)],
@@ -58,19 +60,43 @@ export default function Dashboard() {
     if (!file) return
     setScanning(true)
     setScanMessage('')
+    setScanPreview(null)
     setError('')
     try {
-      const result = await api('/reports/expenses/scan', { method: 'POST', body: file })
+      const result = await api('/reports/expenses/scan', { method: 'POST', body: file, timeout: 120000 })
       let columns = ''
-      try {
-        const parsed = JSON.parse(result.text)
-        if (Array.isArray(parsed.headers)) columns = ` Columns: ${parsed.headers.filter(Boolean).join(' | ')}.`
-      } catch {}
-      if (result.items.length === 0) {
-        setScanMessage(`Added 0 item(s).${columns}`)
+      if (Array.isArray(result.headers)) columns = ` Columns: ${result.headers.filter(Boolean).join(' | ')}.`
+      if (!result.items.length) {
+        setScanMessage(`No expense lines were found.${columns}`)
       } else {
-        setScanMessage(`Added ${result.items.length} item(s) from the receipt.${columns}`)
+        setScanPreview({
+          file_hash: result.file_hash,
+          receipt_url: result.receipt_url,
+          items: result.items.map((item, index) => ({ ...item, key: `${index}-${item.description}`, description: item.description, amount: String(item.amount) })),
+        })
+        setScanMessage(`Review ${result.items.length} detected line(s) before importing.${columns}`)
       }
+    } catch (err) { setError(err.message) }
+    finally { setScanning(false) }
+  }
+
+  const importExpenses = async () => {
+    if (!scanPreview || scanning) return
+    setScanning(true)
+    setError('')
+    try {
+      const items = scanPreview.items.map((item) => {
+        if (!item.description.trim()) throw new Error('Every imported line needs a description.')
+        const amount = Number(item.amount)
+        if (!Number.isFinite(amount) || amount <= 0) throw new Error('Every imported line needs an amount greater than zero.')
+        return { ...item, description: item.description.trim(), amount }
+      })
+      await api('/reports/expenses/import', {
+        method: 'POST',
+        body: { file_hash: scanPreview.file_hash, receipt_url: scanPreview.receipt_url, items, request_id: crypto.randomUUID() },
+      })
+      setScanMessage(`Added ${items.length} expense line(s).`)
+      setScanPreview(null)
       setRange({ from: today(), to: today() })
     } catch (err) { setError(err.message) }
     finally { setScanning(false) }
@@ -83,6 +109,7 @@ export default function Dashboard() {
       await api('/reports/expenses', {
         method: 'POST',
         body: {
+          request_id: expenseRequest.current,
           category: expense.category,
           title: expense.title.trim() || undefined,
           description: expense.description.trim() || undefined,
@@ -94,6 +121,7 @@ export default function Dashboard() {
         },
       })
       setExpense({ category: 'purchase', title: '', description: '', qty: '', unit: '', unit_cost: '', amount: '', receipt_url: null })
+      expenseRequest.current = crypto.randomUUID()
       setRange({ from: today(), to: today() })
     } catch (err) {
       setError(err.message)
@@ -158,12 +186,26 @@ export default function Dashboard() {
       <SalesCharts data={data} />
       <section className="panel p-5">
         <h2 className="text-lg font-bold">Scan a receipt or purchased-items list</h2>
-        <p className="mb-4 mt-1 text-sm text-slate-500">Upload a photo or PDF. The system reads it and creates an expense line for each item and cost it finds. You can still add rent or other expenses manually below.</p>
+        <p className="mb-4 mt-1 text-sm text-slate-500">Upload a photo, PDF, CSV, or XLSX list. Review the detected lines before importing them as expenses.</p>
         <div className="flex flex-wrap items-center gap-3">
           <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" onChange={scanReceipt} disabled={scanning} className="field !py-2" />
           {scanning && <span className="text-sm text-wave">Scanning receipt…</span>}
         </div>
         {scanMessage && <p className="mt-3 text-sm font-semibold text-emerald-700">{scanMessage}</p>}
+        {scanPreview && <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
+          <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+            <thead className="bg-foam text-[11px] uppercase tracking-wider text-slate-500"><tr><th className="px-3 py-2">Description</th><th className="px-3 py-2">Amount (₱)</th><th className="px-3 py-2"><span className="sr-only">Remove</span></th></tr></thead>
+            <tbody className="divide-y divide-slate-100">{scanPreview.items.map((item, index) => <tr key={item.key}>
+              <td className="px-3 py-2"><input aria-label={`Description for line ${index + 1}`} className="field !py-2" maxLength="150" value={item.description} onChange={(e) => setScanPreview(current => ({ ...current, items: current.items.map((entry, i) => i === index ? { ...entry, description: e.target.value } : entry) }))} /></td>
+              <td className="px-3 py-2"><input aria-label={`Amount for line ${index + 1}`} className="field !w-32 !py-2" type="number" min="0.01" step="0.01" value={item.amount} onChange={(e) => setScanPreview(current => ({ ...current, items: current.items.map((entry, i) => i === index ? { ...entry, amount: e.target.value } : entry) }))} /></td>
+              <td className="px-3 py-2"><button type="button" className="text-xs font-bold text-coral" onClick={() => setScanPreview(current => ({ ...current, items: current.items.filter((_, i) => i !== index) }))}>Remove</button></td>
+            </tr>)}</tbody>
+          </table></div>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-foam p-3">
+            <p className="text-sm font-bold">Total {money(scanPreview.items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0))}</p>
+            <div className="flex gap-2"><button type="button" className="btn-ghost text-xs" disabled={scanning} onClick={() => setScanPreview(null)}>Discard</button><button type="button" className="btn-primary text-xs" disabled={scanning || !scanPreview.items.length} onClick={importExpenses}>{scanning ? 'Importing…' : 'Import reviewed lines'}</button></div>
+          </div>
+        </div>}
       </section>
 
       <section className="panel p-5">
@@ -201,7 +243,7 @@ export default function Dashboard() {
               <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" onChange={uploadReceipt} className="field !py-2" disabled={uploading} />
               {uploading && <span className="text-xs text-wave">Uploading…</span>}
             </div>
-            {expense.receipt_url && <a href={photoUrl(expense.receipt_url)} target="_blank" rel="noreferrer" className="mt-1 block text-xs font-semibold text-wave underline">View uploaded receipt</a>}
+            {expense.receipt_url && <button type="button" onClick={() => openFile(expense.receipt_url).catch(err => setError(err.message))} className="mt-1 block text-left text-xs font-semibold text-wave underline">View uploaded receipt</button>}
           </label>
           <div className="flex items-end">
             <button disabled={busy || uploading} className="btn-primary w-full">{busy ? 'Saving…' : 'Add expense'}</button>
@@ -218,11 +260,11 @@ export default function Dashboard() {
         </table></div>
         {!data.productSales.length && <p className="p-6 text-center text-sm text-slate-500">Complete a sale to see its selling prices here.</p>}
         <dl className={`grid gap-3 border-t border-slate-100 bg-foam p-5 ${showCosts ? 'sm:grid-cols-2 xl:grid-cols-5' : 'sm:grid-cols-3'}`}><div><dt className="text-xs text-slate-500">Sales before discounts</dt><dd className="mt-1 font-bold">{money(data.beforeDiscounts)}</dd></div><div><dt className="text-xs text-slate-500">Discounts deducted</dt><dd className="mt-1 font-bold">{money(data.discounts)}</dd></div><div><dt className="text-xs text-slate-500">Total sales collected</dt><dd className="mt-1 font-bold text-wave">{money(data.revenue)}</dd></div>{showCosts && <><div><dt className="text-xs text-slate-500">Estimated cost of goods</dt><dd className="mt-1 font-bold">{money(cogs)}</dd></div><div><dt className="text-xs text-slate-500">Estimated gross profit</dt><dd className="mt-1 font-bold">{money(Number(data.revenue) - cogs)}</dd></div></>}</dl>
-        {showCosts && <p className="border-t border-slate-100 px-5 py-3 text-[11px] text-slate-500">Product costs use the current unit cost on each inventory item and are provided for reference. Net profit is total sales minus recorded expenses.</p>}
+        {showCosts && <p className="border-t border-slate-100 px-5 py-3 text-[11px] text-slate-500">Product costs use the unit cost captured at the time of each sale. Net profit is total sales minus recorded expenses.</p>}
       </section>
       <section className="panel overflow-hidden">
         <div className="p-4"><h2 className="text-lg font-bold">Sales history</h2><p className="mt-1 text-xs text-slate-500">Payments collected in the selected period.</p></div>
-        <div className="overflow-x-auto"><table className="w-full whitespace-nowrap text-left text-sm"><thead className="bg-foam"><tr>{['Receipt', 'Date', 'Sales'].map((label) => <th className="p-3" key={label}>{label}</th>)}</tr></thead><tbody>{data.sales.map((sale) => <tr key={sale.id} className="border-t border-slate-100"><td className="p-3 font-bold">{sale.order_no}</td><td className="p-3">{new Date(sale.created_at).toLocaleString('en-PH')}</td><td className="p-3">{money(sale.total)}</td></tr>)}</tbody></table></div>
+        <div className="overflow-x-auto"><table className="w-full whitespace-nowrap text-left text-sm"><thead className="bg-foam"><tr>{['Receipt', 'Date', 'Sales'].map((label) => <th className="p-3" key={label}>{label}</th>)}</tr></thead><tbody>{data.sales.map((sale) => <tr key={sale.id} className="border-t border-slate-100"><td className="p-3 font-bold">{sale.order_no}</td><td className="p-3">{new Date(sale.created_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}</td><td className="p-3">{money(sale.total)}</td></tr>)}</tbody></table></div>
         {!data.sales.length && <p className="p-6 text-center text-sm text-slate-500">No sales in this period yet.</p>}
       </section>
 
@@ -240,11 +282,7 @@ export default function Dashboard() {
       <section className="panel p-5">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-display text-lg font-extrabold">Recorded expenses</h2>
-          {data.expenses.length > 0 && (
-            <button type="button" className="text-xs font-bold text-coral hover:underline" onClick={async () => { if (window.confirm('Delete all expenses in this period?')) { await api(`/reports/expenses?from=${range.from}&to=${range.to}`, { method: 'DELETE' }); setRange({ ...range }) } }}>
-              Delete all
-            </button>
-          )}
+          <span className="text-xs text-slate-500">Corrections are voided, not deleted.</span>
         </div>
         {!data.expenses.length && <p className="text-sm text-slate-500">No expenses recorded for this period yet.</p>}
         {data.expenses.length > 0 && (
@@ -262,7 +300,7 @@ export default function Dashboard() {
                     <td className="px-3 py-2">{x.unit || '—'}</td>
                     <td className="px-3 py-2 tabular-nums">{x.unit_cost == null ? '—' : money(x.unit_cost)}</td>
                     <td className="px-3 py-2 font-bold tabular-nums">{money(x.amount)}</td>
-                    <td className="px-3 py-2"><button type="button" className="text-xs font-bold text-coral hover:underline" onClick={async () => { await api(`/reports/expenses/${x.id}`, { method: 'DELETE' }); setRange({ from: today(), to: today() }) }}>Delete</button></td>
+                    <td className="px-3 py-2"><button type="button" className="text-xs font-bold text-coral hover:underline" onClick={async () => { const reason = window.prompt('Why is this expense being voided?'); if (!reason?.trim()) return; try { await api(`/reports/expenses/${x.id}/void`, { method: 'POST', body: { reason: reason.trim(), request_id: crypto.randomUUID() } }); setRange({ ...range }) } catch (err) { setError(err.message) } }}>Void</button></td>
                   </tr>
                 ))}
               </tbody>

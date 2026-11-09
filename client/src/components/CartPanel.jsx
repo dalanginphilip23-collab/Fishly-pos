@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useCart } from '../context/Cart'
+import { useCart, availableInCart } from '../context/Cart'
 import { money } from '../utils'
 import CheckoutModal from './CheckoutModal'
 import Icon from './Icon'
@@ -30,7 +30,7 @@ export default function CartPanel({ onClose, onDone }) {
               <div className="flex items-center gap-2 rounded-lg bg-foam p-1">
                 <button aria-label={`Remove one ${l.name}`} onClick={() => dispatch({ type: 'change', id: l.id, by: -1 })} className="h-9 w-9 rounded-lg border border-slate-200 bg-white text-lg font-bold">−</button>
                 <span aria-label="Quantity" className="min-w-6 px-1 text-center text-sm font-bold tabular-nums">{l.qty}</span>
-                <button aria-label={`Add one ${l.name}`} disabled={l.qty >= l.stock} onClick={() => dispatch({ type: 'change', id: l.id, by: 1 })} className="h-9 w-9 rounded-lg border border-slate-200 bg-white text-lg font-bold disabled:opacity-30">+</button>
+                <button aria-label={`Add one ${l.name}`} disabled={l.qty >= availableInCart(l, lines)} onClick={() => dispatch({ type: 'change', id: l.id, by: 1 })} className="h-9 w-9 rounded-lg border border-slate-200 bg-white text-lg font-bold disabled:opacity-30">+</button>
               </div>
               <div className="ml-auto text-right"><p className="text-[10px] text-slate-400">Item total</p><p className="break-words text-base font-extrabold tabular-nums">{money(Math.round(l.price * 100) * l.qty / 100)}</p></div>
             </div>

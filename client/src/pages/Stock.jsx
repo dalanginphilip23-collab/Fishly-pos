@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { money } from '../utils'
 import Modal from '../components/Modal'
@@ -37,11 +37,9 @@ export default function Stock() {
   useEffect(() => { load() }, [load])
 
   const submitAdjustment = async (form) => {
-    try {
-      await api('/stock/adjustments', { method: 'POST', body: form })
-      setAdjustOpen(false)
-      await load()
-    } catch (e) { alert(e.message) }
+    await api('/stock/adjustments', { method: 'POST', body: form })
+    setAdjustOpen(false)
+    await load()
   }
 
   return (
@@ -85,7 +83,7 @@ export default function Stock() {
             {!adjustments.length ? <div className="p-8 text-center text-sm text-slate-500">No adjustments recorded.</div> : (
               <div className="overflow-x-auto"><table className="w-full text-left text-sm">
                 <thead className="bg-foam text-[11px] uppercase tracking-wider text-slate-500"><tr>{['Product', 'Type', 'Qty', 'Reason', 'By', 'Date'].map((h, i) => <th key={i} className="px-5 py-3 font-semibold">{h}</th>)}</tr></thead>
-                <tbody className="divide-y divide-slate-100">{adjustments.map((a) => <tr key={a.id}><td className="px-5 py-3 font-semibold">{a.product_name}</td><td className="px-5 py-3">{a.adjustment_type}</td><td className="px-5 py-3">{a.quantity}</td><td className="px-5 py-3">{a.reason || '—'}</td><td className="px-5 py-3">{a.user_name || '—'}</td><td className="px-5 py-3">{new Date(a.created_at).toLocaleString()}</td></tr>)}</tbody>
+                <tbody className="divide-y divide-slate-100">{adjustments.map((a) => <tr key={a.id}><td className="px-5 py-3 font-semibold">{a.product_name}</td><td className="px-5 py-3">{a.adjustment_type}</td><td className="px-5 py-3">{a.quantity}</td><td className="px-5 py-3">{a.reason || '—'}</td><td className="px-5 py-3">{a.user_name || '—'}</td><td className="px-5 py-3">{new Date(a.created_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}</td></tr>)}</tbody>
               </table></div>
             )}
           </section>
@@ -98,22 +96,50 @@ export default function Stock() {
 
 function AdjustmentModal({ products, onClose, onSave }) {
   const [form, setForm] = useState({ product_id: products[0]?.id || '', adjustment_type: 'add', quantity: 1, reason: '' })
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const requestRef = useRef(crypto.randomUUID())
+  const product = products.find(p => p.id === Number(form.product_id))
+  const submit = async (e) => {
+    e.preventDefault()
+    if (busy) return
+    setBusy(true); setError('')
+    try {
+      await onSave({
+        ...form,
+        product_id: Number(form.product_id),
+        quantity: Number(form.quantity),
+        expected_stock: product ? Number(product.stock) : undefined,
+        request_id: requestRef.current,
+      })
+    } catch (err) { setError(err.message) } finally { setBusy(false) }
+  }
   return (
-    <Modal onClose={onClose} labelledBy="adjust-title">
+    <Modal onClose={() => { if (!busy) onClose() }} labelledBy="adjust-title">
       <h2 id="adjust-title" className="text-lg font-bold">Adjust stock</h2>
-      <form className="mt-4 space-y-3" onSubmit={(e) => { e.preventDefault(); onSave({ ...form, product_id: Number(form.product_id), quantity: Number(form.quantity) }) }}>
-        <select className="field" value={form.product_id} onChange={(e) => setForm({ ...form, product_id: e.target.value })}>
-          {products.map((p) => <option key={p.id} value={p.id}>{p.name} (stock {p.stock})</option>)}
-        </select>
-        <select className="field" value={form.adjustment_type} onChange={(e) => setForm({ ...form, adjustment_type: e.target.value })}>
-          <option value="add">Add stock</option>
-          <option value="remove">Remove stock</option>
-          <option value="wastage">Wastage</option>
-          <option value="opening">Opening stock</option>
-        </select>
-        <input className="field" type="number" min="1" required value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
-        <input className="field" placeholder="Reason (optional)" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
-        <div className="flex justify-end gap-2"><button type="button" className="btn-ghost" onClick={onClose}>Cancel</button><button className="btn-primary">Save</button></div>
+      <form className="mt-4 space-y-3" onSubmit={submit}>
+        <label className="form-label">Product
+          <select className="field" value={form.product_id} onChange={(e) => setForm({ ...form, product_id: e.target.value })}>
+            {products.map((p) => <option key={p.id} value={p.id}>{p.name} (stock {p.stock})</option>)}
+          </select>
+        </label>
+        <label className="form-label">Adjustment type
+          <select className="field" value={form.adjustment_type} onChange={(e) => setForm({ ...form, adjustment_type: e.target.value })}>
+            <option value="add">Add stock</option>
+            <option value="remove">Remove stock</option>
+            <option value="wastage">Wastage</option>
+            <option value="opening">Opening count (set exact stock)</option>
+          </select>
+        </label>
+        <label className="form-label">{form.adjustment_type === 'opening' ? 'Counted stock' : 'Quantity'}
+          <input className="field" type="number" min={form.adjustment_type === 'opening' ? 0 : 1} required value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
+        </label>
+        <label className="form-label">Reason <span className="font-normal text-slate-400">Optional</span>
+          <input className="field" maxLength="200" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
+        </label>
+        {form.adjustment_type === 'opening' && <p className="text-xs text-slate-500">This sets stock to the counted quantity and records the difference in the movement history.</p>}
+        {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-coral">{error}</p>}
+        <div className="flex justify-end gap-2"><button type="button" className="btn-ghost" disabled={busy} onClick={onClose}>Cancel</button><button disabled={busy} className="btn-primary">{busy ? 'Saving…' : 'Save'}</button></div>
       </form>
     </Modal>
   )

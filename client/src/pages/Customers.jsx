@@ -105,7 +105,7 @@ function CustomerDetail({ customer, onClose }) {
       {customer.notes && <p className="mt-2 text-sm text-slate-600">{customer.notes}</p>}
       <h3 className="mt-4 font-semibold">Recent orders</h3>
       {!customer.orders?.length ? <p className="text-sm text-slate-500">No orders yet.</p> : (
-        <ul className="mt-2 space-y-1 text-sm">{customer.orders.map((o) => <li key={o.id}>{o.order_no} · {new Date(o.created_at).toLocaleString()} · ₱{Number(o.total).toFixed(2)} · {o.status}</li>)}</ul>
+        <ul className="mt-2 space-y-1 text-sm">{customer.orders.map((o) => <li key={o.id}>{o.order_no} · {new Date(o.created_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })} · ₱{Number(o.total).toFixed(2)} · {o.status}</li>)}</ul>
       )}
       <div className="mt-4 text-right"><button className="btn-ghost" onClick={onClose}>Close</button></div>
     </Modal>
