@@ -1,24 +1,24 @@
 
 import mysql from 'mysql2/promise'
 import 'dotenv/config'
-import fs from 'node:fs'
-
-const sslDisabled = process.env.DB_SSL === 'false'
 
 function getSSLConfig() {
-  if (sslDisabled) {
+  if (process.env.DB_SSL === 'false') {
     if (process.env.NODE_ENV === 'production') {
-      throw new Error('Database SSL cannot be disabled in production')
+      throw new Error('SSL must be enabled in production')
     }
     return undefined
   }
 
-  const ca = process.env.DB_CA_CERT?.replace(/\\n/g, '\n')
+  const base64 = process.env.DB_CA_CERT_BASE64
+  const raw = process.env.DB_CA_CERT
 
-  if (!ca) {
-    throw new Error(
-      'Missing DB_CA_CERT. Add the Aiven CA certificate to your environment variables.'
-    )
+  const ca = base64
+    ? Buffer.from(base64, 'base64').toString('utf8')
+    : raw?.replace(/\\n/g, '\n')
+
+  if (!ca || !ca.includes('-----BEGIN CERTIFICATE-----')) {
+    throw new Error('Missing or invalid Aiven CA certificate')
   }
 
   return {
@@ -47,7 +47,9 @@ export const pool = mysql.createPool({
 
 pool.pool.on('connection', (connection) => {
   connection.query("SET time_zone = '+08:00'", (err) => {
-    if (err) console.error('Failed to set MySQL timezone:', err.message)
+    if (err) {
+      console.error('Timezone configuration failed:', err.message)
+    }
   })
 })
 
