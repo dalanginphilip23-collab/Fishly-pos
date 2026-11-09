@@ -3,6 +3,7 @@ import { api } from '../api'
 import { money } from '../utils'
 import ProductPhoto from '../components/ProductPhoto'
 import ProductEditor from '../components/ProductEditor'
+import ComboEditor from '../components/ComboEditor'
 import Icon from '../components/Icon'
 
 function StockBadge({ product }) {
@@ -17,6 +18,7 @@ export default function Products() {
   const [rows, setRows] = useState([])
   const [categories, setCategories] = useState([])
   const [editor, setEditor] = useState(null)
+  const [comboEditor, setComboEditor] = useState(null)
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -41,12 +43,17 @@ export default function Products() {
   const shown = rows.filter((p) => `${p.name} ${p.code}`.toLowerCase().includes(query.trim().toLowerCase()) && (!category || p.category_id === Number(category)) && (filter === 'all' || (filter === 'low' && lowStock(p)) || (filter === 'out' && soldOut(p)) || (filter === 'hidden' && !p.active)))
   const categoryName = (id) => categories.find((c) => c.id === id)?.name || 'Uncategorized'
   const openEditor = (product) => { setMsg(''); setEditor(product) }
+  const editProduct = (product) => { setMsg(''); if (product.is_combo) setComboEditor(product); else setEditor(product) }
+  const comboParts = rows.filter((product) => !product.is_combo)
 
   return <div className="workspace-surface h-full overflow-y-auto p-4 md:p-7">
     <div className="mx-auto max-w-7xl space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
-        <div><h1 className="page-title">Products & stock</h1><p className="page-subtitle">Manage menu items, prices, and available stock.</p></div>
-        <button disabled={loading || !categories.length} className="btn-primary inline-flex items-center gap-2" onClick={() => openEditor({})}><Icon name="plus" />Add product</button>
+        <div><h1 className="page-title">Products & stock</h1><p className="page-subtitle">Manage menu items, prices, combos, and available stock.</p></div>
+        <div className="flex flex-wrap gap-2">
+          <button disabled={loading || !categories.length} className="btn-ghost inline-flex items-center gap-2" onClick={() => setComboEditor({})}><Icon name="grid" />Add combo</button>
+          <button disabled={loading || !categories.length} className="btn-primary inline-flex items-center gap-2" onClick={() => openEditor({})}><Icon name="plus" />Add product</button>
+        </div>
       </header>
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {[['all', 'Total products', rows.length, 'text-ocean'], ['low', 'Running low', rows.filter(lowStock).length, 'text-amber-600'], ['out', 'Sold out', rows.filter(soldOut).length, 'text-coral'], ['hidden', 'Hidden from menu', rows.filter((p) => !p.active).length, 'text-slate-500']].map(([key, label, value, color]) => <button key={key} aria-pressed={filter === key} onClick={() => setFilter(key)} className={`rounded-2xl border bg-white p-4 text-left transition hover:border-wave sm:p-5 ${filter === key ? 'border-wave ring-1 ring-wave/10' : 'border-slate-200'}`}><p className="text-xs font-medium text-slate-500">{label}</p><p className={`mt-2 text-3xl font-extrabold tracking-tight ${color}`}>{loading ? '—' : value}</p></button>)}
@@ -64,18 +71,19 @@ export default function Products() {
           <div className="hidden overflow-x-auto lg:block"><table className="w-full text-left text-sm">
             <thead className="bg-foam text-[11px] uppercase tracking-wider text-slate-500"><tr>{['Product', 'Price', 'Cost', 'Stock', 'Status', ''].map((label, i) => <th key={i} scope="col" className="px-5 py-3 font-semibold">{label || <span className="sr-only">Actions</span>}</th>)}</tr></thead>
             <tbody className="divide-y divide-slate-100">{shown.map((p) => <tr key={p.id} className="transition hover:bg-foam/60">
-              <td className="px-5 py-4"><div className="flex items-center gap-3"><ProductPhoto src={p.photo_url} name={p.name} className="h-14 w-14" /><div className="min-w-0"><p className="font-semibold">{p.name}</p><p className="mt-1 text-xs text-slate-400">{p.code} · {categoryName(p.category_id)}</p></div></div></td>
+              <td className="px-5 py-4"><div className="flex items-center gap-3"><ProductPhoto src={p.photo_url} name={p.name} className="h-14 w-14" /><div className="min-w-0"><p className="flex flex-wrap items-center gap-2 font-semibold">{p.name}{p.is_combo ? <span className="rounded-full bg-sky px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-wave">Combo</span> : null}</p><p className="mt-1 text-xs text-slate-400">{p.code} · {categoryName(p.category_id)}</p>{p.is_combo && <p className="mt-1 text-xs text-slate-500">{p.combo_items?.map((item) => `${item.qty}× ${item.name}`).join(' + ')}</p>}</div></div></td>
               <td className="whitespace-nowrap px-5 py-4 font-semibold tabular-nums">{money(p.price)}</td>
               <td className="whitespace-nowrap px-5 py-4 tabular-nums">{p.unit_cost === null || p.unit_cost === undefined ? <span className="text-slate-400">Not set</span> : money(p.unit_cost)}</td>
               <td className="px-5 py-4"><span className="font-semibold tabular-nums">{p.stock}</span><span className="ml-1 text-xs text-slate-400">units</span></td><td className="px-5 py-4"><StockBadge product={p} /></td>
-              <td className="px-5 py-4 text-right"><button aria-label={`Edit ${p.name}`} className="btn-ghost !px-3 !py-2 text-xs" onClick={() => openEditor(p)}>Edit product</button></td>
+              <td className="px-5 py-4 text-right"><button aria-label={`Edit ${p.name}`} className="btn-ghost !px-3 !py-2 text-xs" onClick={() => editProduct(p)}>Edit {p.is_combo ? 'combo' : 'product'}</button></td>
             </tr>)}</tbody>
           </table></div>
-          <div className="grid gap-3 p-3 sm:grid-cols-2 lg:hidden">{shown.map((p) => <article key={p.id} className="rounded-xl border border-slate-200 p-4"><div className="mb-4 flex items-center gap-3"><ProductPhoto src={p.photo_url} name={p.name} className="h-16 w-16" /><div className="min-w-0"><h2 className="font-bold leading-snug">{p.name}</h2><p className="mt-1 text-xs text-slate-400">{p.code} · {categoryName(p.category_id)}</p></div></div><dl className="mb-4 grid grid-cols-3 gap-2 text-sm"><div><dt className="text-xs text-slate-400">Price</dt><dd className="mt-1 font-bold">{money(p.price)}</dd></div><div><dt className="text-xs text-slate-400">Cost</dt><dd className="mt-1 font-bold">{p.unit_cost === null || p.unit_cost === undefined ? '—' : money(p.unit_cost)}</dd></div><div><dt className="text-xs text-slate-400">Stock</dt><dd className="mt-1 font-bold">{p.stock}</dd></div></dl><div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3"><StockBadge product={p} /><button aria-label={`Edit ${p.name}`} className="btn-ghost !px-3 !py-2 text-xs" onClick={() => openEditor(p)}>Edit product</button></div></article>)}</div>
+          <div className="grid gap-3 p-3 sm:grid-cols-2 lg:hidden">{shown.map((p) => <article key={p.id} className="rounded-xl border border-slate-200 p-4"><div className="mb-4 flex items-center gap-3"><ProductPhoto src={p.photo_url} name={p.name} className="h-16 w-16" /><div className="min-w-0"><h2 className="font-bold leading-snug">{p.name} {p.is_combo ? <span className="ml-1 rounded-full bg-sky px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-wave">Combo</span> : null}</h2><p className="mt-1 text-xs text-slate-400">{p.code} · {categoryName(p.category_id)}</p>{p.is_combo && <p className="mt-1 text-xs text-slate-500">{p.combo_items?.map((item) => `${item.qty}× ${item.name}`).join(' + ')}</p>}</div></div><dl className="mb-4 grid grid-cols-3 gap-2 text-sm"><div><dt className="text-xs text-slate-400">Price</dt><dd className="mt-1 font-bold">{money(p.price)}</dd></div><div><dt className="text-xs text-slate-400">Cost</dt><dd className="mt-1 font-bold">{p.unit_cost === null || p.unit_cost === undefined ? '—' : money(p.unit_cost)}</dd></div><div><dt className="text-xs text-slate-400">Stock</dt><dd className="mt-1 font-bold">{p.stock}</dd></div></dl><div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3"><StockBadge product={p} /><button aria-label={`Edit ${p.name}`} className="btn-ghost !px-3 !py-2 text-xs" onClick={() => editProduct(p)}>Edit {p.is_combo ? 'combo' : 'product'}</button></div></article>)}</div>
         </>}
       </section>
       <p className="text-xs leading-relaxed text-slate-500">Select Edit product to update stock, photos, pricing and unit cost. Record daily expenses in Analytics to calculate profit.</p>
     </div>
     {editor && <ProductEditor product={editor} categories={categories} onClose={() => setEditor(null)} onSaved={(message) => { setEditor(null); setMsg(message); load() }} />}
+    {comboEditor && <ComboEditor combo={comboEditor} products={comboParts} categories={categories} onClose={() => setComboEditor(null)} onSaved={(message) => { setComboEditor(null); setMsg(message); load() }} />}
   </div>
 }

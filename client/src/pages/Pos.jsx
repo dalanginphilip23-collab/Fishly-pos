@@ -29,6 +29,7 @@ export default function Pos() {
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
   const [q, setQ] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('all')
   const [groupID, setGroupID] = useState(null)
   const [flavorSelection, setFlavorSelection] = useState({})
   const [selectedFlavor, setSelectedFlavor] = useState(null)
@@ -83,10 +84,16 @@ export default function Pos() {
 
   // Group the menu by category so flavors share one card: Poppers opens
   // Regular / Spicy / Barbecue instead of filling the register with every variant.
+  const filteredProducts = useMemo(() => {
+    if (categoryFilter === 'combos') return products.filter((product) => product.is_combo)
+    if (categoryFilter === 'all') return products
+    return products.filter((product) => product.category_id === Number(categoryFilter))
+  }, [products, categoryFilter])
+
   const groups = useMemo(() => {
     const term = q.trim().toLowerCase()
     const byCategory = new Map()
-    for (const product of products) {
+    for (const product of filteredProducts) {
       const category = categories.find((item) => item.id === product.category_id)
       if (!byCategory.has(product.category_id)) {
         byCategory.set(product.category_id, {
@@ -123,7 +130,7 @@ export default function Pos() {
         }
       })
       .filter((group) => group.visible.length > 0)
-  }, [products, categories, q, lines])
+  }, [filteredProducts, categories, q, lines])
 
   const activeGroup = useMemo(() => groups.find((group) => group.id === groupID) || null, [groups, groupID])
   useEffect(() => {
@@ -139,7 +146,18 @@ export default function Pos() {
     ? activeGroup.visible.reduce((sum, product) => sum + Math.round(Number(product.price) * 100) * qtyInOrder(product.id), 0) / 100
     : 0
 
-  const openGroup = (group) => setGroupID(group.id)
+  // Single-flavor groups (like drinks) skip the picker and add straight away.
+  const openGroup = (group) => {
+    if (group.visible.length === 1) {
+      addProduct(group.visible[0])
+      return
+    }
+    setGroupID(group.id)
+  }
+
+  const usedCategories = categories.filter((category) => products.some((product) => product.category_id === category.id))
+  const comboCount = products.filter((product) => product.is_combo).length
+  const chip = (active) => `rounded-full border px-3 py-1.5 text-xs font-semibold transition ${active ? 'border-wave bg-wave text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-wave hover:text-wave'}`
 
   return (
     <div className="workspace-surface relative flex h-full">
@@ -148,7 +166,12 @@ export default function Pos() {
       </div>
       <section inert={drawer ? '' : undefined} className="flex min-h-0 min-w-0 flex-1 flex-col p-3 sm:p-5 xl:p-6">
         <header className="workspace-heading mb-5 flex shrink-0 items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-3"><span className="workspace-heading-icon hidden sm:flex"><Icon name="register" /></span><div className="min-w-0"><h1 className="page-title">Register</h1><p className="page-subtitle">Choose a menu group, then pick a flavor.</p></div></div><div className="flex shrink-0 items-center gap-2"><span className="hidden whitespace-nowrap py-2 text-sm text-slate-500 xl:block">{new Date().toLocaleDateString('en-PH', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</span><button type="button" onClick={() => navigate('/dashboard')} className="btn-ghost flex items-center gap-2 text-sm" title="Open the admin workspace" aria-label="Open admin workspace"><Icon name="admin" /><span className="hidden sm:inline">Admin</span></button></div></header>
-        <div className="relative mb-4 shrink-0"><Icon name="search" className="absolute left-4 top-3 text-slate-400" /><input aria-label="Search menu by flavor, product, or code" className="field !pl-12 !py-3" placeholder="Search a flavor or product…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+        <div className="relative mb-3 shrink-0"><Icon name="search" className="absolute left-4 top-3 text-slate-400" /><input aria-label="Search menu by flavor, product, or code" className="field !pl-12 !py-3" placeholder="Search a flavor or product…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+        <div role="group" aria-label="Filter menu by category" className="mb-3 flex shrink-0 flex-wrap gap-2">
+          <button type="button" aria-pressed={categoryFilter === 'all'} onClick={() => setCategoryFilter('all')} className={chip(categoryFilter === 'all')}>All</button>
+          {comboCount > 0 && <button type="button" aria-pressed={categoryFilter === 'combos'} onClick={() => setCategoryFilter('combos')} className={chip(categoryFilter === 'combos')}>Combos <span className="opacity-70">({comboCount})</span></button>}
+          {usedCategories.map((category) => <button key={category.id} type="button" aria-pressed={String(category.id) === categoryFilter} onClick={() => setCategoryFilter(String(category.id))} className={chip(String(category.id) === categoryFilter)}>{category.name}</button>)}
+        </div>
         <div className="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-2 text-xs text-slate-500"><span><span className="font-semibold text-ocean">{q.trim() ? 'Search results' : 'Menu groups'}</span> · {groups.length} {groups.length === 1 ? 'group' : 'groups'} · {choiceCount} {choiceCount === 1 ? 'choice' : 'choices'}</span><button disabled={loading} className="rounded-lg px-2 py-1 font-semibold text-wave hover:bg-sky" onClick={load}>Refresh menu</button></div>
         {error && <div role="alert" className="mb-4 rounded-xl bg-red-50 p-4 text-sm text-coral">{error}<button className="ml-3 font-bold underline" onClick={load}>Try again</button></div>}
         <div className="min-h-0 flex-1 overflow-y-auto pb-24 pr-1 lg:pb-3">
@@ -173,11 +196,13 @@ export default function Pos() {
                 <ProductPhoto src={group.photo} name={cardName} className={`aspect-[4/3] w-full ${soldOut ? 'grayscale opacity-60' : ''}`} />
                 {group.inCart > 0 && <span className="absolute right-3 top-3 rounded-full bg-wave px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">{group.inCart} in order</span>}
                 {!single && <span className="absolute left-3 top-3 rounded-full bg-ocean/85 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">{group.visible.length} choices</span>}
+                {single && only.is_combo && <span className="absolute left-3 top-3 rounded-full bg-ocean/85 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">Combo</span>}
                 {soldOut && <span className="absolute inset-0 grid place-items-center"><span className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-coral shadow-sm">Sold out</span></span>}
               </span>
               <span className="flex shrink-0 grow flex-col p-3 sm:p-4">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{single ? only.code : 'Pick a flavor'}</span>
                 <span className="mt-1 min-h-10 break-words text-sm font-bold leading-5">{cardName}</span>
+                {single && only.is_combo && <span className="mt-1 block text-[11px] leading-snug text-slate-500">{only.combo_items?.map((item) => `${item.qty}× ${item.name}`).join(' + ')}</span>}
                 <span className="mt-3 block"><span className="block text-xs text-slate-500">{single ? 'Price' : 'Price range'}</span><span className="mt-1 block break-words text-xl font-semibold leading-tight tracking-tight text-ocean tabular-nums">{price}</span></span>
                 <span className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3"><span className={`text-xs ${group.remaining > 0 && group.remaining <= 10 ? 'text-amber-700' : 'text-slate-500'}`}>{soldOut ? 'Unavailable' : atLimit ? 'Stock limit reached' : `${group.remaining} available`}</span><span className={`flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-semibold ${!soldOut && !atLimit ? 'bg-sky text-wave' : 'bg-slate-100 text-slate-400'}`}><Icon name={!soldOut && !atLimit ? (single ? 'plus' : 'grid') : 'check'} className="!h-4 !w-4" />{action}</span></span>
               </span>
@@ -192,30 +217,37 @@ export default function Pos() {
       </aside>
       {count > 0 && !drawer && <button onClick={() => setDrawer(true)} className="cart-launcher btn-primary fixed z-10 flex flex-wrap justify-between gap-2 shadow-lg lg:hidden"><span>View order ({count})</span><span>{money(total)}</span></button>}
       {activeGroup && <Modal labelledBy="flavor-picker-title" onClose={() => setGroupID(null)}>
-        <div className="space-y-3">
-          <header className="flex items-center justify-between gap-3">
+        <div className="space-y-4">
+          <header className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-wave">Choose a flavor</p>
-              <h2 id="flavor-picker-title" className="text-lg font-bold">{activeGroup.name}</h2>
+              <span className="inline-flex items-center rounded-full bg-sky px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-wave">Choose a flavor</span>
+              <h2 id="flavor-picker-title" className="mt-1.5 text-xl font-extrabold tracking-tight">{activeGroup.name}</h2>
+              <p className="text-xs text-slate-500">{activeGroup.visible.length} {activeGroup.visible.length === 1 ? 'choice' : 'choices'} available</p>
             </div>
-            <button type="button" aria-label="Close flavor choices" onClick={() => setGroupID(null)} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-foam text-lg text-slate-500 hover:bg-sky">×</button>
+            <button type="button" aria-label="Close flavor choices" onClick={() => setGroupID(null)} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-foam text-lg text-slate-500 transition hover:bg-sky hover:text-wave">×</button>
           </header>
-          <div className="flex justify-center"><ProductPhoto src={activeGroup.photo} name={activeGroup.name} className="h-24 w-24 rounded-full" /></div>
-          <div className="flex flex-nowrap justify-center gap-2">
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-sky via-foam to-white p-4">
+            <div className="flex justify-center"><ProductPhoto src={activeGroup.photo} name={activeGroup.name} className="h-24 w-24 rounded-full shadow-lg ring-4 ring-white" /></div>
+          </div>
+          <div className="flex flex-wrap justify-center gap-x-14 gap-y-3 rounded-xl bg-foam px-5 py-3">
             {activeGroup.visible.map((product) => {
               const qty = qtyInOrder(product.id)
               const remaining = Math.max(product.stock - qty, 0)
+              const selected = selectedFlavor === product.id
               return (
-                <label key={product.id} className={`flex w-[80px] items-center justify-center gap-1 rounded-lg border px-1 py-1 ${selectedFlavor === product.id ? 'border-wave bg-sky/50 ring-1 ring-wave/20' : 'border-slate-200 bg-white'} ${remaining ? '' : 'opacity-60'}`}>
-                  <input type="radio" name="flavor" disabled={!remaining} checked={selectedFlavor === product.id} onChange={() => setSelectedFlavor(product.id)} className="h-3 w-3" />
-                  <span className="min-w-0 flex-1 whitespace-nowrap text-xs font-semibold">{flavorLabel(product)}</span>
+                <label key={product.id} className={`flex cursor-pointer items-center gap-1.5 text-xs font-semibold ${remaining ? '' : 'cursor-not-allowed opacity-50'}`}>
+                  <input type="radio" name="flavor" disabled={!remaining} checked={selected} onChange={() => setSelectedFlavor(product.id)} className="h-3.5 w-3.5 accent-wave" />
+                  <span className={`whitespace-nowrap ${selected ? 'text-wave' : 'text-slate-700'}`}>{flavorLabel(product)}</span>
                 </label>
               )
             })}
           </div>
           <footer className="flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
-            <p className="text-xs text-slate-500">{selectedFlavor ? flavorLabel(activeGroup.visible.find((p) => p.id === selectedFlavor) || {}) || 'None' : 'None'}</p>
-            <div className="flex gap-2">
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Selected</p>
+              <p className="truncate text-sm font-bold">{selectedFlavor ? flavorLabel(activeGroup.visible.find((p) => p.id === selectedFlavor) || {}) || 'None' : 'None'}</p>
+            </div>
+            <div className="flex shrink-0 gap-2">
               <button type="button" className="btn-ghost text-xs" onClick={() => setGroupID(null)}>Cancel</button>
               <button type="button" className="btn-primary text-xs" disabled={selectedFlavor === null} onClick={() => {
                 const product = activeGroup.visible.find((item) => item.id === selectedFlavor)

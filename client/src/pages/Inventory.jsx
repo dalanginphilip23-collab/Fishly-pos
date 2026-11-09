@@ -56,7 +56,7 @@ export default function Inventory() {
             <section className="panel overflow-hidden">
               <div className="overflow-x-auto"><table className="w-full text-left text-sm">
                 <thead className="bg-foam text-[11px] uppercase tracking-wider text-slate-500"><tr>{['Product', 'Code', 'Stock', 'Reorder', 'Unit cost', 'Stock value', 'Expiry'].map((h, i) => <th key={i} className="px-5 py-3 font-semibold">{h}</th>)}</tr></thead>
-                <tbody className="divide-y divide-slate-100">{products.map((p) => (
+                <tbody className="divide-y divide-slate-100">{products.filter((p) => !p.is_combo).map((p) => (
                   <tr key={p.id}>
                     <td className="px-5 py-3 font-semibold">{p.name}</td>
                     <td className="px-5 py-3">{p.code}</td>
@@ -124,7 +124,7 @@ export default function Inventory() {
           )}
         </>}
       </div>
-      {purchaseOpen && <PurchaseModal products={products} suppliers={suppliers} onClose={() => setPurchaseOpen(false)} onSave={async (form) => { await api('/purchases', { method: 'POST', body: form }); setPurchaseOpen(false); await load() }} />}
+      {purchaseOpen && <PurchaseModal products={products.filter((p) => !p.is_combo)} suppliers={suppliers} onClose={() => setPurchaseOpen(false)} onSave={async (form) => { await api('/purchases', { method: 'POST', body: form }); setPurchaseOpen(false); await load() }} />}
       {supplierOpen && <SupplierModal onClose={() => setSupplierOpen(false)} onSave={async (form) => { await api('/suppliers', { method: 'POST', body: form }); setSupplierOpen(false); await load() }} />}
     </div>
   )

@@ -55,7 +55,7 @@ router.get('/low-stock', auth(), async (req, res, next) => {
   try {
     const [rows] = await pool.query(
       `SELECT id, category_id, code, name, price, stock, reorder_level, expiry_date, active
-       FROM products WHERE active = 1 AND stock <= reorder_level ORDER BY stock ASC, name`
+       FROM products WHERE active = 1 AND is_combo = 0 AND stock <= reorder_level ORDER BY stock ASC, name`
     )
     res.json(rows)
   } catch (e) { next(e) }
@@ -79,7 +79,7 @@ router.get('/summary', auth(), async (req, res, next) => {
   try {
     const [[totals]] = await pool.query(
       `SELECT COUNT(*) total_products, COALESCE(SUM(stock),0) total_units, COALESCE(SUM(stock * COALESCE(unit_cost,0)),0) stock_value
-       FROM products WHERE active = 1`
+       FROM products WHERE active = 1 AND is_combo = 0`
     )
     const [byCategory] = await pool.query(
       `SELECT c.name category, COUNT(p.id) products, COALESCE(SUM(p.stock),0) units

@@ -52,6 +52,19 @@ export async function migrateSchema() {
     await pool.query('ALTER TABLE orders ADD COLUMN customer_id INT NULL AFTER cashier_id')
     console.log('Added orders.customer_id')
   }
+  if (!(await columnExists('products', 'is_combo'))) {
+    await pool.query('ALTER TABLE products ADD COLUMN is_combo TINYINT(1) NOT NULL DEFAULT 0 AFTER price')
+    console.log('Added products.is_combo')
+  }
+
+  await pool.query(`CREATE TABLE IF NOT EXISTS combo_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    combo_id INT NOT NULL,
+    item_id INT NOT NULL,
+    qty INT NOT NULL DEFAULT 1,
+    FOREIGN KEY (combo_id) REFERENCES products(id) ON DELETE CASCADE,
+    FOREIGN KEY (item_id) REFERENCES products(id)
+  )`)
 
   await pool.query(`CREATE TABLE IF NOT EXISTS suppliers (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -87,6 +100,32 @@ export async function migrateSchema() {
     FOREIGN KEY (purchase_id) REFERENCES purchases(id) ON DELETE CASCADE,
     FOREIGN KEY (product_id) REFERENCES products(id)
   )`)
+
+  if (!(await columnExists('expenses', 'category'))) {
+    await pool.query("ALTER TABLE expenses ADD COLUMN category VARCHAR(20) NOT NULL DEFAULT 'other' AFTER id")
+    console.log('Added expenses.category')
+  }
+  if (!(await columnExists('expenses', 'qty'))) {
+    await pool.query('ALTER TABLE expenses ADD COLUMN qty INT NULL AFTER amount')
+    console.log('Added expenses.qty')
+  }
+  if (!(await columnExists('expenses', 'unit_cost'))) {
+    await pool.query('ALTER TABLE expenses ADD COLUMN unit_cost DECIMAL(10,2) NULL AFTER qty')
+    console.log('Added expenses.unit_cost')
+  }
+  if (!(await columnExists('expenses', 'receipt_url'))) {
+    await pool.query('ALTER TABLE expenses ADD COLUMN receipt_url VARCHAR(255) NULL AFTER unit_cost')
+    console.log('Added expenses.receipt_url')
+  }
+
+  if (!(await columnExists('expenses', 'title'))) {
+    await pool.query('ALTER TABLE expenses ADD COLUMN title VARCHAR(150) NULL AFTER category')
+    console.log('Added expenses.title')
+  }
+  if (!(await columnExists('expenses', 'unit'))) {
+    await pool.query('ALTER TABLE expenses ADD COLUMN unit VARCHAR(20) NULL AFTER qty')
+    console.log('Added expenses.unit')
+  }
 
   console.log('Inventory, customer and reporting schema ready.')
 }

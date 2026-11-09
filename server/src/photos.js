@@ -3,6 +3,7 @@ import { access } from 'node:fs/promises'
 import { fail } from './db.js'
 
 export const photoDirectory = fileURLToPath(new URL('../uploads/photos/', import.meta.url))
+export const receiptDirectory = fileURLToPath(new URL('../uploads/receipts/', import.meta.url))
 export const photoPattern = /^\/api\/uploads\/photos\/[a-f0-9-]{36}\.(jpg|png|webp)$/
 
 export function photoExtension(buffer) {

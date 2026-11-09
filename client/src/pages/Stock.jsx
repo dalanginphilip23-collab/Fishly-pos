@@ -91,7 +91,7 @@ export default function Stock() {
           </section>
         </>}
       </div>
-      {adjustOpen && <AdjustmentModal products={products} onClose={() => setAdjustOpen(false)} onSave={submitAdjustment} />}
+      {adjustOpen && <AdjustmentModal products={products.filter((p) => !p.is_combo)} onClose={() => setAdjustOpen(false)} onSave={submitAdjustment} />}
     </div>
   )
 }

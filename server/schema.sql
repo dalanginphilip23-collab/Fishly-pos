@@ -22,6 +22,7 @@ CREATE TABLE products (
   code VARCHAR(20) NOT NULL UNIQUE,
   name VARCHAR(100) NOT NULL,
   price DECIMAL(10,2) NOT NULL,
+  is_combo TINYINT(1) NOT NULL DEFAULT 0,
   unit_cost DECIMAL(10,2) NULL,
   stock INT NOT NULL DEFAULT 0,
   reorder_level INT NOT NULL DEFAULT 10,
@@ -29,6 +30,15 @@ CREATE TABLE products (
   photo_url VARCHAR(255) NULL,
   active TINYINT(1) NOT NULL DEFAULT 1,
   FOREIGN KEY (category_id) REFERENCES categories(id)
+);
+
+CREATE TABLE combo_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  combo_id INT NOT NULL,
+  item_id INT NOT NULL,
+  qty INT NOT NULL DEFAULT 1,
+  FOREIGN KEY (combo_id) REFERENCES products(id) ON DELETE CASCADE,
+  FOREIGN KEY (item_id) REFERENCES products(id)
 );
 
 CREATE TABLE customers (
@@ -124,8 +134,14 @@ CREATE TABLE order_items (
 
 CREATE TABLE expenses (
   id INT AUTO_INCREMENT PRIMARY KEY,
+  category VARCHAR(20) NOT NULL DEFAULT 'other',
+  title VARCHAR(150) NULL,
   description VARCHAR(150) NOT NULL,
+  qty INT NULL,
+  unit VARCHAR(20) NULL,
+  unit_cost DECIMAL(10,2) NULL,
   amount DECIMAL(10,2) NOT NULL,
+  receipt_url VARCHAR(255) NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

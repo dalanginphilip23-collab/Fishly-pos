@@ -43,15 +43,19 @@ export function payment(subtotal, discount, method, cash) {
 
 export function productFields(body, partial = false) {
   const result = {}
-  for (const key of ['category_id', 'code', 'name', 'price', 'unit_cost', 'stock', 'reorder_level', 'expiry_date', 'active', 'photo_url']) {
-    if (body[key] === undefined && (partial || key === 'active' || key === 'unit_cost' || key === 'photo_url')) continue
-    const value = body[key] === undefined && key === 'stock' ? 0 : body[key]
+  for (const key of ['category_id', 'code', 'name', 'price', 'is_combo', 'unit_cost', 'stock', 'reorder_level', 'expiry_date', 'active', 'photo_url']) {
+    if (body[key] === undefined && (partial || key === 'active' || key === 'unit_cost' || key === 'photo_url' || key === 'expiry_date')) continue
+    const defaults = { stock: 0, reorder_level: 10 }
+    const value = body[key] === undefined && key in defaults ? defaults[key] : body[key]
     if (key === 'code' || key === 'name') result[key] = text(value, key, key === 'code' ? 20 : 100)
     else if (key === 'price') result[key] = cents(value, 'Price') / 100
     else if (key === 'unit_cost') result[key] = value === null ? null : cents(value, 'Unit cost') / 100
     else if (key === 'photo_url') result[key] = value === null ? null : text(value, 'Photo URL', 255)
     else if (key === 'active') {
       if (![0, 1].includes(value)) throw fail(400, 'Active must be 0 or 1')
+      result[key] = value
+    } else if (key === 'is_combo') {
+      if (![0, 1].includes(value)) throw fail(400, 'Combo flag must be 0 or 1')
       result[key] = value
     } else if (key === 'reorder_level') result[key] = integer(value, 'Reorder level', 0)
     else if (key === 'expiry_date') {
@@ -62,6 +66,18 @@ export function productFields(body, partial = false) {
   }
   if (!Object.keys(result).length) throw fail(400, 'Nothing to update')
   return result
+}
+
+export function comboItems(items, comboId = null) {
+  if (!Array.isArray(items) || !items.length || items.length > 30) throw fail(400, 'A combo needs between 1 and 30 included products')
+  const merged = new Map()
+  for (const item of items) {
+    if (!item || typeof item !== 'object') throw fail(400, 'Invalid combo item')
+    const itemId = integer(Number(item.item_id ?? item.itemId), 'Included product ID', 1)
+    if (comboId !== null && itemId === comboId) throw fail(400, 'A combo cannot include itself')
+    merged.set(itemId, integer((merged.get(itemId) || 0) + integer(Number(item.qty), 'Included quantity', 1), 'Included quantity', 1))
+  }
+  return [...merged].map(([item_id, qty]) => ({ item_id, qty }))
 }
 
 export function dateRange(query) {

@@ -9,7 +9,7 @@ import customerRoutes from './routes/customers.js'
 import stockRoutes from './routes/stock.js'
 import supplierRoutes from './routes/suppliers.js'
 import purchaseRoutes from './routes/purchases.js'
-import { photoDirectory } from './photos.js'
+import { photoDirectory, receiptDirectory } from './photos.js'
 import { ensureDefaultUsers } from './seed.js'
 import { migrateSchema } from './migrate.js'
 
@@ -19,6 +19,7 @@ app.disable('x-powered-by')
 app.use(cors({ origin: process.env.CLIENT_URL }))
 app.use(express.json({ limit: '64kb' }))
 app.use('/api/uploads/photos', express.static(photoDirectory, { dotfiles: 'deny', index: false, setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff') }))
+app.use('/api/uploads/receipts', express.static(receiptDirectory, { dotfiles: 'deny', index: false, setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff') }))
 
 app.use('/api/auth', authRoutes)
 app.use('/api/products', productRoutes)
