@@ -72,7 +72,6 @@ router.post('/', auth(), async (req, res, next) => {
     const result = await mutate(req, 'order.create', async (conn) => {
       await lockInventory(conn)
       const [[shift]] = await conn.query('SELECT id FROM shifts WHERE user_id = ? AND closed_at IS NULL ORDER BY id DESC LIMIT 1 FOR UPDATE', [req.user.id])
-      if (!shift) throw fail(409, 'Open a shift before taking payment.')
       if (customerId) {
         const [[customer]] = await conn.query('SELECT id FROM customers WHERE id = ?', [customerId])
         if (!customer) throw fail(404, 'Customer not found')

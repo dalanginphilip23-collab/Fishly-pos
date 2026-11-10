@@ -26,7 +26,7 @@ export default function ShiftBar({ onShiftChange }) {
   if (error) return <div role="alert" className="mb-3 flex items-center justify-between gap-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-coral"><span>Shift status: {error}</span><button className="font-bold underline" onClick={load}>Retry</button></div>
   if (!shift) return <>
     <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
-      <span className="font-semibold text-amber-900">Open a shift before taking payment.</span>
+      <span className="font-semibold text-amber-900">Optional: open a shift to track cash drawer totals.</span>
       <button className="btn-primary !py-2 text-xs" onClick={() => setOpen(true)}>Open shift</button>
     </div>
     {open && <OpenShift onClose={() => setOpen(false)} onDone={() => { setOpen(false); load() }} />}

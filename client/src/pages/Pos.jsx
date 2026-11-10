@@ -7,7 +7,6 @@ import CartPanel from '../components/CartPanel'
 import Icon from '../components/Icon'
 import Modal from '../components/Modal'
 import ProductPhoto from '../components/ProductPhoto'
-import ShiftBar from '../components/ShiftBar'
 
 // The category card already explains what is included (rice, drink, pieces),
 // so flavor choices only need the flavor word: Regular, Spicy, Barbecue.

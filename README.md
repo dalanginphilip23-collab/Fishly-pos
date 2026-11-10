@@ -25,7 +25,7 @@ The seed creates a single administrator account (`admin` by default, or `ADMIN_U
 
 ## Daily workflow
 
-- **Register:** group cards combine flavors; stock is shared across combinations, so overselling a shared ingredient is prevented. Open a shift before taking payment. Discounts and cash support centavos. GCash records a reference and requires the cashier to confirm the amount was received in the merchant account.
+- **Register:** group cards combine flavors; stock is shared across combinations, so overselling a shared ingredient is prevented. Payments do not require an open shift. Discounts and cash support centavos. GCash records a reference and requires the cashier to confirm the amount was received in the merchant account.
 - **Shifts:** open with a starting float, record cash in/out movements, and close by counting cash and GCash. Cash and GCash variances are preserved for review.
 - **Receipts / Orders:** review completed and refunded sales, print receipts, and issue full refunds with optional restocking.
 - **Inventory:** receive purchases, optionally mark them as paid (which creates one linked expense), manage suppliers, and review stock movements.
