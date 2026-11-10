@@ -1,6 +1,7 @@
 
 import { pool } from './db.js'
 import { migrateLaunchSchema } from './launch-migration.js'
+import { migrateMenuCatalog } from './menu-catalog.js'
 
 async function columnExists(table, column) {
   const [rows] = await pool.query(
@@ -236,6 +237,7 @@ export async function migrateSchema() {
   )
 
   await migrateLaunchSchema()
+  await migrateMenuCatalog(pool)
 
   console.log('Fishly POS database migration completed successfully.')
 }
