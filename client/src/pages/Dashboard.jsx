@@ -184,8 +184,8 @@ export default function Dashboard() {
       </div>
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-slate-200/70 bg-white/60 px-4 py-3 text-xs text-slate-500"><span><strong className="text-ocean">{data.orders}</strong> completed sales</span><span>Average sale <strong className="text-ocean">{money(data.orders ? data.revenue / data.orders : 0)}</strong></span><span>Discounts included · Cancelled orders excluded</span></div>
       <SalesCharts data={data} />
-      <section className="panel p-5">
-        <h2 className="text-lg font-bold">Scan a receipt or purchased-items list</h2>
+      <details className="panel p-5">
+        <summary className="cursor-pointer text-sm font-bold text-wave">Import expenses from a receipt or file</summary>
         <p className="mb-4 mt-1 text-sm text-slate-500">Upload a photo, PDF, CSV, or XLSX list. Review the detected lines before importing them as expenses.</p>
         <div className="flex flex-wrap items-center gap-3">
           <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" onChange={scanReceipt} disabled={scanning} className="field !py-2" />
@@ -206,12 +206,11 @@ export default function Dashboard() {
             <div className="flex gap-2"><button type="button" className="btn-ghost text-xs" disabled={scanning} onClick={() => setScanPreview(null)}>Discard</button><button type="button" className="btn-primary text-xs" disabled={scanning || !scanPreview.items.length} onClick={importExpenses}>{scanning ? 'Importing…' : 'Import reviewed lines'}</button></div>
           </div>
         </div>}
-      </section>
+      </details>
 
       <section className="panel p-5">
-        <h2 className="text-lg font-bold">Add an expense manually</h2>
-        <p className="mb-4 mt-1 text-sm text-slate-500">Use this for stall rent, supplies, or anything not captured from a receipt.</p>
-        <form onSubmit={addExpense} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <h2 className="text-lg font-bold">Add expense</h2>
+        <form onSubmit={addExpense} className="mt-4 grid gap-3 sm:grid-cols-2">
           <label className="form-label">Category
             <select className="field" value={expense.category} onChange={(e) => setExpense({ ...expense, category: e.target.value })}>
               <option value="rent">Rent</option>
@@ -220,11 +219,17 @@ export default function Dashboard() {
               <option value="other">Other</option>
             </select>
           </label>
+          <label className="form-label">Expense name
+            <input className="field" maxLength="150" placeholder="e.g. Stall rent, cooking oil" value={expense.description} onChange={(e) => setExpense({ ...expense, description: e.target.value })} />
+          </label>
+          <label className="form-label sm:col-span-2">Total amount (₱)
+            <input className="field" required type="number" min="0.01" max="99999999.99" step="0.01" placeholder="0.00" value={expenseAmount} onChange={(e) => setExpense({ ...expense, amount: e.target.value })} />
+          </label>
+          <details className="sm:col-span-2">
+            <summary className="cursor-pointer text-sm font-semibold text-slate-500">Optional details & receipt</summary>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label className="form-label sm:col-span-2">Title
             <input className="field" maxLength="150" placeholder="e.g. May 2026 groceries" value={expense.title || ''} onChange={(e) => setExpense({ ...expense, title: e.target.value })} />
-          </label>
-          <label className="form-label sm:col-span-2">Bought items
-            <input className="field" maxLength="150" placeholder="e.g. Stall rent, cooking oil" value={expense.description} onChange={(e) => setExpense({ ...expense, description: e.target.value })} />
           </label>
           <label className="form-label">Quantity
             <input className="field" type="number" min="1" step="1" placeholder="1" value={expense.qty} onChange={(e) => setExpense({ ...expense, qty: e.target.value, amount: '' })} />
@@ -235,9 +240,6 @@ export default function Dashboard() {
           <label className="form-label">Unit cost (₱)
             <input className="field" type="number" min="0" step="0.01" placeholder="0.00" value={expense.unit_cost} onChange={(e) => setExpense({ ...expense, unit_cost: e.target.value, amount: '' })} />
           </label>
-          <label className="form-label">Total amount (₱)
-            <input className="field" required type="number" min="0.01" max="99999999.99" step="0.01" placeholder="0.00" value={expenseAmount} onChange={(e) => setExpense({ ...expense, amount: e.target.value })} />
-          </label>
           <label className="form-label sm:col-span-2">Receipt / list file (optional)
             <div className="flex items-center gap-2">
               <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" onChange={uploadReceipt} className="field !py-2" disabled={uploading} />
@@ -245,11 +247,13 @@ export default function Dashboard() {
             </div>
             {expense.receipt_url && <button type="button" onClick={() => openFile(expense.receipt_url).catch(err => setError(err.message))} className="mt-1 block text-left text-xs font-semibold text-wave underline">View uploaded receipt</button>}
           </label>
+            </div>
+          </details>
           <div className="flex items-end">
             <button disabled={busy || uploading} className="btn-primary w-full">{busy ? 'Saving…' : 'Add expense'}</button>
           </div>
         </form>
-        <p className="mt-3 text-xs text-slate-500">Entries are recorded for today. After saving, the report shows updated profit.</p>
+        <p className="mt-3 text-xs text-slate-500">Recorded for today.</p>
       </section>
       <BestSellers products={data.top} from={data.from} to={data.to} />
       <section className="panel overflow-hidden">

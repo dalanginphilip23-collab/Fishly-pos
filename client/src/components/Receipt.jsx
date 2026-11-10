@@ -15,7 +15,7 @@ function ReceiptContent({ order }) {
     {order.status === 'cancelled' && <p className="receipt-cancelled">CANCELLED</p>}
     {order.refund && <p className="receipt-cancelled">REFUNDED {order.refund.reason ? `· ${order.refund.reason}` : ''}</p>}
     {order.items.map((item) => <div key={item.id} className="receipt-row receipt-item">
-      <span>{item.qty} × {item.name}<small>{money(item.price)} each</small></span>
+      <span>{item.qty} × {item.name}</span>
       <span>{money(Math.round(item.price * 100) * item.qty / 100)}</span>
     </div>)}
     <hr />
