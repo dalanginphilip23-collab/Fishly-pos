@@ -24,6 +24,17 @@ router.get('/adjustments', manager, async (req, res, next) => {
   } catch (e) { next(e) }
 })
 
+router.delete('/adjustments/:id', auth(['admin']), async (req, res, next) => {
+  try {
+    const id = integer(Number(req.params.id), 'Movement ID', 1)
+    const result = await mutate(req, `stock.movement.delete.${id}`, async (conn) => {
+      await conn.query('DELETE FROM stock_adjustments WHERE id = ?', [id])
+      return { ok: true }
+    })
+    res.json(result)
+  } catch (e) { next(e) }
+})
+
 router.post('/adjustments', manager, async (req, res, next) => {
   try {
     const productId = integer(Number(req.body.product_id), 'Product ID', 1)

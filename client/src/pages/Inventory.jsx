@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../context/Auth'
 import { api } from '../api'
 import { money } from '../utils'
 import Modal from '../components/Modal'
@@ -8,6 +9,9 @@ import Icon from '../components/Icon'
 const tabs = ['Stock', 'Movements', 'Purchases', 'Suppliers']
 
 export default function Inventory() {
+  const { user } = useAuth()
+  const [deletingMovement, setDeletingMovement] = useState(null)
+  const [message, setMessage] = useState('')
   const [tab, setTab] = useState('Stock')
   const [products, setProducts] = useState([])
   const [movements, setMovements] = useState([])
@@ -42,6 +46,18 @@ export default function Inventory() {
 
   useEffect(() => { load() }, [load])
   const stockProducts = products.filter((product) => !product.is_combo)
+  const deleteMovement = async (movement) => {
+    if (deletingMovement !== null) return
+    setDeletingMovement(movement.id)
+    setError('')
+    setMessage('')
+    try {
+      await api(`/stock/adjustments/${movement.id}`, { method: 'DELETE', body: { request_id: crypto.randomUUID() } })
+      setMovements(current => current.filter(item => item.id !== movement.id))
+      setMessage(`Movement for ${movement.product_name} deleted. Stock and sales are unchanged.`)
+    } catch (e) { setError(e.message) }
+    finally { setDeletingMovement(null) }
+  }
 
   return (
     <div className="workspace-surface h-full overflow-y-auto p-4 md:p-7">
@@ -56,6 +72,7 @@ export default function Inventory() {
           </div>
         </header>
         {error && <div role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-coral">{error}</div>}
+        {message && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{message}</p>}
         <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-2">
           {tabs.map((t) => <button key={t} onClick={() => setTab(t)} className={`rounded-lg px-3 py-2 text-sm font-semibold ${tab === t ? 'bg-sky text-wave' : 'text-slate-500 hover:bg-foam'}`}>{t}</button>)}
         </div>
@@ -86,8 +103,9 @@ export default function Inventory() {
           )}
           {tab === 'Movements' && (
             <section className="panel overflow-hidden">
+              <p className="border-b border-slate-100 p-4 text-xs text-slate-500">Stock movement history. Deleting an entry removes only the history record; it does not change stock or cancel a sale.</p>
               <div className="overflow-x-auto"><table className="w-full text-left text-sm">
-                <thead className="bg-foam text-[11px] uppercase tracking-wider text-slate-500"><tr>{['Product', 'Type', 'Qty', 'Reason', 'By', 'Date'].map((h, i) => <th key={i} className="px-5 py-3 font-semibold">{h}</th>)}</tr></thead>
+                <thead className="bg-foam text-[11px] uppercase tracking-wider text-slate-500"><tr>{['Product', 'Type', 'Qty', 'Reason', 'By', 'Date', ...(user.role === 'admin' ? ['Actions'] : [])].map((h, i) => <th key={i} className="px-5 py-3 font-semibold">{h}</th>)}</tr></thead>
                 <tbody className="divide-y divide-slate-100">{movements.map((m) => (
                   <tr key={m.id}>
                     <td className="px-5 py-3 font-semibold">{m.product_name}</td>
@@ -96,6 +114,7 @@ export default function Inventory() {
                     <td className="px-5 py-3">{m.reason || '—'}</td>
                     <td className="px-5 py-3">{m.user_name || '—'}</td>
                     <td className="px-5 py-3">{new Date(m.created_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}</td>
+                    {user.role === 'admin' && <td className="px-5 py-3"><button type="button" aria-label={`Delete movement for ${m.product_name}`} disabled={deletingMovement !== null} onClick={() => deleteMovement(m)} className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50">{deletingMovement === m.id ? 'Deleting…' : 'Delete'}</button></td>}
                   </tr>
                 ))}</tbody>
               </table></div>

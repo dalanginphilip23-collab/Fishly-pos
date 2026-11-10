@@ -98,6 +98,9 @@ function columnName(index) {
 
 function cellXml(value, column, row, style) {
   const reference = `${columnName(column)}${row + 1}`
+  if (value && typeof value === 'object' && typeof value.formula === 'string' && Number.isFinite(value.result)) {
+    return `<c r="${reference}" s="${style}"><f>${escapeXml(value.formula)}</f><v>${value.result}</v></c>`
+  }
   if (typeof value === 'number' && Number.isFinite(value)) {
     return `<c r="${reference}" s="${style}"><v>${value}</v></c>`
   }
@@ -116,7 +119,7 @@ function worksheet(sheet) {
   }).join('')
   const lastColumn = columnName(Math.max(0, columns.length - 1))
   const lastRow = sheet.rows.length + 1
-  const filter = sheet.rows.length ? `<autoFilter ref="A1:${lastColumn}${lastRow}"/>` : ''
+  const filter = sheet.autoFilter !== false && sheet.rows.length ? `<autoFilter ref="A1:${lastColumn}${lastRow}"/>` : ''
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
     + `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">`

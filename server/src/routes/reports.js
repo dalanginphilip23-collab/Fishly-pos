@@ -6,6 +6,7 @@ import { auth } from '../middleware/auth.js'
 import { dateRange, cents, text, integer } from '../validation.js'
 import { costOfGoods, profitSummary } from '../profit.js'
 import { buildWorkbook } from '../xlsx.js'
+import { profitExportSheet } from '../profit-export.js'
 import { receiptDirectory } from '../photos.js'
 import { mutate } from '../mutations.js'
 
@@ -329,6 +330,12 @@ router.get('/export.xlsx', manager, async (req, res, next) => {
        LEFT JOIN products p ON p.id = i.product_id
        WHERE ${liveOrders} ORDER BY o.id, i.id`, span)
     const [expenses] = await pool.query(`SELECT * FROM expenses WHERE ${liveExpenses} ORDER BY id`, span)
+    const purchaseIds = [...new Set(expenses.filter(expense => expense.purchase_id != null).map(expense => expense.purchase_id))]
+    const [purchaseItems] = purchaseIds.length ? await pool.query(
+      `SELECT i.purchase_id, p.name, i.qty, i.unit_cost, i.total
+       FROM purchase_items i JOIN products p ON p.id = i.product_id
+       WHERE i.purchase_id IN (?) ORDER BY i.purchase_id, i.id`, [purchaseIds]
+    ) : [[]]
     const [inventory] = await pool.query(
       `SELECT p.code, p.name, c.name category, p.price, p.unit_cost, p.stock, p.active
        FROM products p LEFT JOIN categories c ON c.id = p.category_id ORDER BY c.sort_order, p.name`)
@@ -366,6 +373,7 @@ router.get('/export.xlsx', manager, async (req, res, next) => {
     ]
 
     const sheets = [
+      profitExportSheet({ from, to, revenue: report.revenue, expenses, purchaseItems }),
       { name: 'Summary', columns: [{ header: 'Metric', width: 36 }, { header: 'Value', width: 24 }], rows: summary },
       {
         name: 'Sales',
