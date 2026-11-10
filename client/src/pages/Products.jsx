@@ -25,6 +25,7 @@ export default function Products() {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('')
   const [filter, setFilter] = useState('all')
+  const [removing, setRemoving] = useState(null)
 
   const load = useCallback(async () => {
     setError('')
@@ -45,6 +46,19 @@ export default function Products() {
   const openEditor = (product) => { setMsg(''); setEditor(product) }
   const editProduct = (product) => { setMsg(''); if (product.is_combo) setComboEditor(product); else setEditor(product) }
   const comboParts = rows.filter((product) => !product.is_combo)
+  const removeProduct = async (product) => {
+    if (removing !== null) return
+    setRemoving(product.id)
+    setError('')
+    setMsg('')
+    try {
+      await api(`/products/${product.id}`, { method: 'PUT', body: { active: 0, request_id: crypto.randomUUID() } })
+      await load()
+      setMsg(`${product.name} removed from the menu. You can restore it by editing it under Hidden from menu.`)
+    } catch (e) { setError(e.message) }
+    finally { setRemoving(null) }
+  }
+  const removeButton = (product) => product.active ? <button type="button" aria-label={`Remove ${product.name}`} disabled={removing !== null} className="btn-ghost !px-3 !py-2 text-xs !text-coral" onClick={() => removeProduct(product)}>{removing === product.id ? 'Removing…' : 'Remove'}</button> : null
 
   return <div className="workspace-surface h-full overflow-y-auto p-4 md:p-7">
     <div className="mx-auto max-w-7xl space-y-6">
@@ -75,10 +89,10 @@ export default function Products() {
               <td className="whitespace-nowrap px-5 py-4 font-semibold tabular-nums">{money(p.price)}</td>
               <td className="whitespace-nowrap px-5 py-4 tabular-nums">{p.unit_cost === null || p.unit_cost === undefined ? <span className="text-slate-400">Not set</span> : money(p.unit_cost)}</td>
               <td className="px-5 py-4"><span className="font-semibold tabular-nums">{p.stock}</span><span className="ml-1 text-xs text-slate-400">units</span></td><td className="px-5 py-4"><StockBadge product={p} /></td>
-              <td className="px-5 py-4 text-right"><button aria-label={`Edit ${p.name}`} className="btn-ghost !px-3 !py-2 text-xs" onClick={() => editProduct(p)}>Edit {p.is_combo ? 'combo' : 'product'}</button></td>
+              <td className="px-5 py-4 text-right"><button aria-label={`Edit ${p.name}`} className="btn-ghost !px-3 !py-2 text-xs" onClick={() => editProduct(p)}>Edit {p.is_combo ? 'combo' : 'product'}</button>{removeButton(p)}</td>
             </tr>)}</tbody>
           </table></div>
-          <div className="grid gap-3 p-3 sm:grid-cols-2 lg:hidden">{shown.map((p) => <article key={p.id} className="rounded-xl border border-slate-200 p-4"><div className="mb-4 flex items-center gap-3"><ProductPhoto src={p.photo_url} name={p.name} className="h-16 w-16" /><div className="min-w-0"><h2 className="font-bold leading-snug">{p.name} {p.is_combo ? <span className="ml-1 rounded-full bg-sky px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-wave">Combo</span> : null}</h2><p className="mt-1 text-xs text-slate-400">{p.code} · {categoryName(p.category_id)}</p>{p.is_combo && <p className="mt-1 text-xs text-slate-500">{p.combo_items?.map((item) => `${item.qty}× ${item.name}`).join(' + ')}</p>}</div></div><dl className="mb-4 grid grid-cols-3 gap-2 text-sm"><div><dt className="text-xs text-slate-400">Price</dt><dd className="mt-1 font-bold">{money(p.price)}</dd></div><div><dt className="text-xs text-slate-400">Cost</dt><dd className="mt-1 font-bold">{p.unit_cost === null || p.unit_cost === undefined ? '—' : money(p.unit_cost)}</dd></div><div><dt className="text-xs text-slate-400">Stock</dt><dd className="mt-1 font-bold">{p.stock}</dd></div></dl><div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3"><StockBadge product={p} /><button aria-label={`Edit ${p.name}`} className="btn-ghost !px-3 !py-2 text-xs" onClick={() => editProduct(p)}>Edit {p.is_combo ? 'combo' : 'product'}</button></div></article>)}</div>
+          <div className="grid gap-3 p-3 sm:grid-cols-2 lg:hidden">{shown.map((p) => <article key={p.id} className="rounded-xl border border-slate-200 p-4"><div className="mb-4 flex items-center gap-3"><ProductPhoto src={p.photo_url} name={p.name} className="h-16 w-16" /><div className="min-w-0"><h2 className="font-bold leading-snug">{p.name} {p.is_combo ? <span className="ml-1 rounded-full bg-sky px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-wave">Combo</span> : null}</h2><p className="mt-1 text-xs text-slate-400">{p.code} · {categoryName(p.category_id)}</p>{p.is_combo && <p className="mt-1 text-xs text-slate-500">{p.combo_items?.map((item) => `${item.qty}× ${item.name}`).join(' + ')}</p>}</div></div><dl className="mb-4 grid grid-cols-3 gap-2 text-sm"><div><dt className="text-xs text-slate-400">Price</dt><dd className="mt-1 font-bold">{money(p.price)}</dd></div><div><dt className="text-xs text-slate-400">Cost</dt><dd className="mt-1 font-bold">{p.unit_cost === null || p.unit_cost === undefined ? '—' : money(p.unit_cost)}</dd></div><div><dt className="text-xs text-slate-400">Stock</dt><dd className="mt-1 font-bold">{p.stock}</dd></div></dl><div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3"><StockBadge product={p} /><div><button aria-label={`Edit ${p.name}`} className="btn-ghost !px-3 !py-2 text-xs" onClick={() => editProduct(p)}>Edit {p.is_combo ? 'combo' : 'product'}</button>{removeButton(p)}</div></div></article>)}</div>
         </>}
       </section>
       <p className="text-xs leading-relaxed text-slate-500">Select Edit product to update stock, photos, pricing and unit cost. Record daily expenses in Analytics to calculate profit.</p>
