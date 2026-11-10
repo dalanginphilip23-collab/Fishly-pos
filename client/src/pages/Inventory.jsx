@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../api'
 import { money } from '../utils'
 import Modal from '../components/Modal'
@@ -21,42 +22,53 @@ export default function Inventory() {
     setError('')
     setLoading(true)
     try {
-      const [p, m, pu, s] = await Promise.all([
+      const results = await Promise.allSettled([
         api('/products?all=1'),
         api('/stock/adjustments'),
         api('/purchases'),
         api('/suppliers'),
       ])
-      setProducts(p)
-      setMovements(m)
-      setPurchases(pu)
-      setSuppliers(s)
+      const setters = [setProducts, setMovements, setPurchases, setSuppliers]
+      const labels = ['Stock', 'Movements', 'Purchases', 'Suppliers']
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') setters[index](index === 0
+          ? result.value.map((product) => ({ ...product, is_combo: Boolean(Number(product.is_combo)) }))
+          : result.value)
+      })
+      setError(results.flatMap((result, index) => result.status === 'rejected' ? [`${labels[index]}: ${result.reason.message}`] : []).join(' · '))
     } catch (e) { setError(e.message) }
     finally { setLoading(false) }
   }, [])
 
   useEffect(() => { load() }, [load])
+  const stockProducts = products.filter((product) => !product.is_combo)
 
   return (
     <div className="workspace-surface h-full overflow-y-auto p-4 md:p-7">
-      <div className="mx-auto max-w-7xl space-y-6">
+      <div className="mx-auto max-w-[1440px] space-y-5">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div><h1 className="page-title">Inventory</h1><p className="page-subtitle">Stock, movements, purchases, and suppliers.</p></div>
-          <div className="flex gap-2">
-            {tab === 'Purchases' && <button className="btn-primary inline-flex items-center gap-2" onClick={() => setPurchaseOpen(true)}><Icon name="plus" />New purchase</button>}
+          <div className="flex flex-wrap gap-2">
+            <button className="btn-ghost inline-flex items-center gap-2" disabled={loading} onClick={load}><Icon name="refresh" />Refresh</button>
+            {tab === 'Stock' && <Link className="btn-ghost" to="/stock">Adjust stock</Link>}
+            {(tab === 'Stock' || tab === 'Purchases') && <button disabled={loading || !stockProducts.length} className="btn-primary inline-flex items-center gap-2" onClick={() => setPurchaseOpen(true)}><Icon name="plus" />Receive stock</button>}
             {tab === 'Suppliers' && <button className="btn-primary inline-flex items-center gap-2" onClick={() => setSupplierOpen(true)}><Icon name="plus" />Add supplier</button>}
           </div>
         </header>
         {error && <div role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-coral">{error}</div>}
-        <div className="flex gap-2 border-b border-slate-200 pb-2">
+        <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-2">
           {tabs.map((t) => <button key={t} onClick={() => setTab(t)} className={`rounded-lg px-3 py-2 text-sm font-semibold ${tab === t ? 'bg-sky text-wave' : 'text-slate-500 hover:bg-foam'}`}>{t}</button>)}
         </div>
         {loading ? <div className="p-16 text-center text-sm text-slate-500">Loading inventory…</div> : <>
           {tab === 'Stock' && (
             <section className="panel overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-4">
+                <div><h2 className="font-bold">Stock on hand</h2><p className="mt-1 text-xs text-slate-500">Receive stock for deliveries. Adjust stock for counts, waste, or corrections. Sales deduct stock automatically.</p></div>
+                <Link to="/products" className="text-sm font-semibold text-wave">Manage products</Link>
+              </div>
               <div className="overflow-x-auto"><table className="w-full text-left text-sm">
                 <thead className="bg-foam text-[11px] uppercase tracking-wider text-slate-500"><tr>{['Product', 'Code', 'Stock', 'Reorder', 'Unit cost', 'Stock value', 'Expiry'].map((h, i) => <th key={i} className="px-5 py-3 font-semibold">{h}</th>)}</tr></thead>
-                <tbody className="divide-y divide-slate-100">{products.filter((p) => !p.is_combo).map((p) => (
+                <tbody className="divide-y divide-slate-100">{stockProducts.map((p) => (
                   <tr key={p.id}>
                     <td className="px-5 py-3 font-semibold">{p.name}</td>
                     <td className="px-5 py-3">{p.code}</td>
@@ -68,6 +80,8 @@ export default function Inventory() {
                   </tr>
                 ))}</tbody>
               </table></div>
+              {!stockProducts.length && <div className="p-10 text-center"><p className="font-semibold">No individual products to display</p><p className="mt-2 text-sm text-slate-500">Add a product in Products to start tracking stock. Combos use the stock of their included products.</p><Link to="/products" className="btn-primary mt-4 inline-flex">Go to products</Link></div>}
+              {stockProducts.length > 0 && <p className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500">{stockProducts.length} products · Reorder is the low-stock threshold. Stock value is quantity × unit cost. Combos use their included products’ stock.</p>}
             </section>
           )}
           {tab === 'Movements' && (
@@ -125,7 +139,7 @@ export default function Inventory() {
           )}
         </>}
       </div>
-      {purchaseOpen && <PurchaseModal products={products.filter((p) => !p.is_combo)} suppliers={suppliers} onClose={() => setPurchaseOpen(false)} onSave={async (form) => { await api('/purchases', { method: 'POST', body: form }); setPurchaseOpen(false); await load() }} />}
+       {purchaseOpen && <PurchaseModal products={stockProducts} suppliers={suppliers} onClose={() => setPurchaseOpen(false)} onSave={async (form) => { await api('/purchases', { method: 'POST', body: form }); setPurchaseOpen(false); await load() }} />}
       {supplierOpen && <SupplierModal onClose={() => setSupplierOpen(false)} onSave={async (form) => { await api('/suppliers', { method: 'POST', body: form }); setSupplierOpen(false); await load() }} />}
     </div>
   )
