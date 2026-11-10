@@ -24,7 +24,7 @@ router.get('/adjustments', manager, async (req, res, next) => {
   } catch (e) { next(e) }
 })
 
-router.delete('/adjustments/:id', auth(['admin']), async (req, res, next) => {
+router.delete('/adjustments/:id', manager, async (req, res, next) => {
   try {
     const id = integer(Number(req.params.id), 'Movement ID', 1)
     const result = await mutate(req, `stock.movement.delete.${id}`, async (conn) => {

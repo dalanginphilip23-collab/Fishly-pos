@@ -17,6 +17,12 @@ test('export lists purchased items once and deducts all expenses from sales', as
   const workbook = new ExcelJS.Workbook()
   await workbook.xlsx.load(buildWorkbook([sheet]))
   const page = workbook.worksheets[0]
+  assert.equal(page.name, 'Expenses & Profit')
+  assert.equal(page.getCell('A1').value, 'FISHLY POPPERS — EXPENSES & PROFIT')
+  assert.equal(page.getCell('A4').value, 'Purchased item / Expense')
+  assert.equal(page.getCell('F1').isMerged, true)
+  assert.equal(page.getCell('E11').numFmt, '#,##0.00')
+  assert.equal(page.getCell('E11').font.bold, true)
   assert.equal(page.getCell('A5').value, 'Isda')
   assert.equal(page.getCell('B5').value, 3)
   assert.equal(page.getCell('D5').value, 100)
@@ -27,8 +33,8 @@ test('export lists purchased items once and deducts all expenses from sales', as
 
 test('export supports no expenses and preserves losses and missing quantities', () => {
   const empty = profitExportSheet({ from: '2026-11-10', to: '2026-11-10', revenue: 0, expenses: [] })
-  assert.equal(empty.rows.find(row => row[0]?.startsWith('NETONG'))[4].result, 0)
+  assert.equal(empty.rows.find(row => row[0]?.startsWith('NET PROFIT'))[4].result, 0)
   const loss = profitExportSheet({ from: '2026-11-10', to: '2026-11-10', revenue: 10.25, expenses: [{ description: 'Supplies', amount: 20.5 }] })
-  assert.equal(loss.rows[3][1], '')
-  assert.equal(loss.rows.find(row => row[0]?.startsWith('NETONG'))[4].result, -10.25)
+  assert.equal(loss.rows[4][1], '')
+  assert.equal(loss.rows.find(row => row[0]?.startsWith('NET PROFIT'))[4].result, -10.25)
 })

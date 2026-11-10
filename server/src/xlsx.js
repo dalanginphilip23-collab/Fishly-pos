@@ -115,7 +115,12 @@ function worksheet(sheet) {
   }).join('')
   const header = columns.map((column, index) => cellXml(column.header ?? '', index, 0, 1)).join('')
   const rows = sheet.rows.map((row, rowIndex) => {
-    return `<row r="${rowIndex + 2}">${row.map((value, columnIndex) => cellXml(value, columnIndex, rowIndex + 1, 0)).join('')}</row>`
+    const index = rowIndex + (sheet.header === false ? 0 : 1)
+    const style = sheet.styledRows?.[index + 1] || 0
+    return `<row r="${index + 1}" ht="${style === 3 ? 32 : 24}" customHeight="1">${row.map((value, columnIndex) => {
+      const isMoney = sheet.moneyColumns?.includes(columnIndex) && (typeof value === 'number' || (value && typeof value === 'object'))
+      return cellXml(value, columnIndex, index, isMoney ? (style === 4 ? 6 : style === 1 ? 5 : 2) : style)
+    }).join('')}</row>`
   }).join('')
   const lastColumn = columnName(Math.max(0, columns.length - 1))
   const lastRow = sheet.rows.length + 1
@@ -123,10 +128,12 @@ function worksheet(sheet) {
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
     + `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">`
-    + `<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>`
+    + `<sheetViews><sheetView workbookViewId="0"${sheet.header === false ? ' showGridLines="0"' : ''}><pane ySplit="${sheet.freezeRows || 1}" topLeftCell="A${(sheet.freezeRows || 1) + 1}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>`
     + `<cols>${widths}</cols>`
-    + `<sheetData><row r="1">${header}</row>${rows}</sheetData>`
-    + `${filter}</worksheet>`
+    + `<sheetData>${sheet.header === false ? '' : `<row r="1">${header}</row>`}${rows}</sheetData>`
+    + `${filter}`
+    + (sheet.merges?.length ? `<mergeCells count="${sheet.merges.length}">${sheet.merges.map(ref => `<mergeCell ref="${escapeXml(ref)}"/>`).join('')}</mergeCells>` : '')
+    + '</worksheet>'
 }
 
 const styles = () => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -135,7 +142,12 @@ const styles = () => '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
   + '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFEAF3F9"/><bgColor indexed="64"/></patternFill></fill></fills>'
   + '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
   + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-  + '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs>'
+  + '<cellXfs count="7"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>'
+  + '<xf numFmtId="4" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
+  + '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+  + '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>'
+  + '<xf numFmtId="4" fontId="1" fillId="2" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/>'
+  + '<xf numFmtId="4" fontId="1" fillId="2" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1"/></cellXfs>'
   + '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
   + '</styleSheet>'
 
