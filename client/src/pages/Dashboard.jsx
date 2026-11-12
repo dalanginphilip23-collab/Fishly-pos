@@ -155,7 +155,7 @@ export default function Dashboard() {
     <div className="admin-dashboard relative h-full overflow-y-auto p-4 md:p-7 lg:p-8">
       <div className="relative mx-auto max-w-[1440px] space-y-6">
       <div className="workspace-heading flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3"><span className="workspace-heading-icon hidden sm:flex"><Icon name="chart" /></span><div><p className="mb-1 text-xs font-semibold uppercase tracking-widest text-wave">Fishly Poppers</p><h1 className="page-title">Business overview</h1><p className="page-subtitle">Your sales, spending, and daily operations in one place.</p></div></div>
+        <div className="flex items-center gap-3"><span className="workspace-heading-icon hidden sm:flex"><Icon name="chart" /></span><div><p className="mb-1 text-xs font-semibold uppercase tracking-widest text-wave">Fishly Poppers</p><h1 className="page-title">Sales Reports</h1><p className="page-subtitle">Review sales, expenses, and profit by date.</p></div></div>
         <div className="flex flex-wrap items-center gap-2">
           <button disabled={loading || exporting} className="btn-ghost flex items-center gap-2 text-sm" onClick={exportSales}><Icon name={exporting ? 'refresh' : 'download'} className={exporting ? 'animate-spin' : ''} />{exporting ? 'Preparing…' : 'Export to Excel'}</button>
           <button disabled={loading || busy} className="btn-ghost flex items-center gap-2 text-sm" onClick={() => load()}><Icon name="refresh" className={loading ? 'animate-spin' : ''} />Refresh report</button>

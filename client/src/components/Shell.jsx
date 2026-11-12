@@ -6,8 +6,8 @@ import ThemeToggle from './ThemeToggle'
 import { Fragment, useState } from 'react'
 
 const groups = [
-  { id: 'daily', links: [['/dashboard', 'Overview', 'chart'], ['/', 'Register', 'register'], ['/orders', 'Receipts', 'orders']] },
-  { id: 'manage', label: 'Manage', links: [['/products', 'Products', 'bag'], ['/inventory', 'Purchases', 'grid'], ['/stock', 'Stock', 'wallet'], ['/customers', 'Customers', 'user'], ['/staff', 'Staff', 'user']] },
+  { id: 'daily', links: [['/', 'Register', 'register'], ['/orders', 'Receipts', 'orders']] },
+  { id: 'manage', label: 'Manage', links: [['/dashboard', 'Sales Reports', 'chart'], ['/products', 'Products', 'bag'], ['/inventory', 'Purchases', 'grid'], ['/stock', 'Stock', 'wallet'], ['/customers', 'Customers', 'user']] },
 ]
 
 export default function Shell() {
