@@ -110,15 +110,13 @@ input, select, textarea { min-width: 0; }
 .admin-dashboard, .workspace-surface { background: var(--canvas); }
 .brand-sidebar { background: var(--surface); border-color: var(--line); color: var(--ink); }
 .app-shell .brand-sidebar {
-  --surface: #102e4b; --subtle: #1b3b59; --ink: #f1f6fb;
-  --muted: #bdcddd; --line: #2a4965; --accent: #a7d6ff; --accent-soft: #204b70;
   background: var(--surface); color: var(--ink); border-color: var(--line);
 }
 .app-shell .brand-sidebar .border-slate-200 { border-color: var(--line); }
-.app-shell .brand-sidebar :is(button, a):focus-visible { --tw-ring-offset-color: #102e4b; --tw-ring-color: #a7d6ff; }
+.app-shell .brand-sidebar :is(button, a):focus-visible { --tw-ring-offset-color: var(--surface); --tw-ring-color: var(--accent); }
 .workspace-heading { border-bottom: 1px solid var(--line); padding-bottom: 20px; }
 .workspace-heading-icon { height: 44px; width: 44px; align-items: center; justify-content: center; flex-shrink: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--accent); }
-.app-shell .panel.metric-feature { background: #102e4b; border-color: #102e4b; color: #fff; }
+.app-shell .panel.metric-feature { background: var(--accent-soft); border-color: var(--line); color: var(--ink); }
 .order-heading { background: var(--accent-soft); border-top: 3px solid var(--action); }
 .workspace-sidebar { transition: width 200ms ease, background-color 160ms ease, border-color 160ms ease; }
 .sidebar-collapsed .sidebar-label { display: none; }
@@ -176,12 +174,16 @@ input[type='checkbox'] { accent-color: #0076b8; }
   overflow-wrap: anywhere;
 }
 .receipt-heading { text-align: center; break-inside: avoid; }
+.receipt-paper[data-paper="58"] { padding-inline: 5mm; }
+.receipt-paper[data-paper="80"] { padding-inline: 4mm; }
 .receipt-heading h3 { font-size: 12pt; font-weight: 700; }
 .receipt-heading p { margin: 1mm 0 0; font-size: 8pt; }
 .receipt-heading .receipt-number { margin-top: 2mm; font-size: 11pt; font-weight: 700; }
 .receipt-paper hr { margin: 2mm 0; border: 0; border-top: 1px dashed #777; }
 .receipt-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2mm; margin: 1mm 0; break-inside: avoid; }
 .receipt-row > :last-child { text-align: right; white-space: nowrap; }
+.receipt-reference { grid-template-columns: minmax(0, 1fr); gap: 0; }
+.receipt-reference > :last-child { white-space: normal; overflow-wrap: anywhere; text-align: left; }
 .receipt-item { margin: 2mm 0; }
 .receipt-item small { display: block; font-size: 8pt; }
 .receipt-total { font-size: 11pt; font-weight: 700; margin: 2mm 0; }

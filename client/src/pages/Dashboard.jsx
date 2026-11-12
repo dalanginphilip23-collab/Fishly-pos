@@ -186,9 +186,9 @@ export default function Dashboard() {
       {loading && <div role="status"><p className="mb-3 text-sm text-slate-500">Loading sales…</p><div className="grid gap-3 sm:grid-cols-3">{[1, 2, 3].map(i => <div key={i} className="panel h-32 animate-pulse bg-slate-100" />)}</div></div>}
       {data && !loading && <>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {[['Total sales', money(data.revenue)], ['Total expenses', money(data.spent)], [data.net < 0 ? 'Net loss' : 'Net profit', money(data.net)]].map(([label, value]) => (
+        {[['Total sales', money(data.revenue), 'register'], ['Total expenses', money(data.spent), 'wallet'], [data.net < 0 ? 'Net loss' : 'Net profit', money(data.net), 'chart']].map(([label, value, icon]) => (
           <div key={label} className={`panel p-5 ${label === 'Net profit' ? 'metric-feature' : label === 'Net loss' ? 'text-coral' : ''}`}>
-            <p className="text-sm font-bold opacity-70">{label}</p>
+            <div className="flex items-center gap-2"><span className="rounded-lg bg-sky p-2 text-wave"><Icon name={icon} className="!h-4 !w-4" /></span><p className="text-sm font-semibold text-slate-500">{label}</p></div>
             <p className="mt-3 break-words text-3xl font-bold tracking-tight tabular-nums">{value}</p>
           </div>
         ))}
@@ -196,6 +196,18 @@ export default function Dashboard() {
       <p className="text-xs text-slate-500">Net profit here is sales minus recorded expenses. Product costs are shown separately in detailed reports.</p>
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-slate-200/70 bg-white/60 px-4 py-3 text-xs text-slate-500"><span><strong className="text-ocean">{data.orders}</strong> completed sales</span><span>Average sale <strong className="text-ocean">{money(data.orders ? data.revenue / data.orders : 0)}</strong></span><span>Discounts included · Cancelled orders excluded</span></div>
       <SalesCharts data={data} />
+      <section className="panel p-5" aria-labelledby="recent-sales-title">
+        <div className="flex items-center justify-between gap-3"><h2 id="recent-sales-title" className="text-base font-bold">Recent sales</h2><Link to="/orders" className="text-sm font-semibold text-wave">View receipts →</Link></div>
+        <p className="mt-1 text-xs text-slate-500">Latest completed sales in the selected period.</p>
+        <ul className="mt-4 divide-y divide-slate-100">
+          {[...data.sales].sort((a, b) => new Date(b.created_at) - new Date(a.created_at) || b.id - a.id).slice(0, 5).map(sale => <li key={sale.id} className="flex items-center gap-3 py-3">
+            <span className="rounded-lg bg-sky p-2 text-wave"><Icon name="check" className="!h-4 !w-4" /></span>
+            <div className="min-w-0 flex-1"><p className="break-words text-sm font-semibold">{sale.order_no}</p><p className="mt-1 text-xs text-slate-500">{new Date(sale.created_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</p></div>
+            <span className="text-sm font-semibold tabular-nums text-wave">{money(sale.total)}</span>
+          </li>)}
+        </ul>
+        {!data.sales.length && <div className="py-6 text-center"><p className="text-sm text-slate-500">No sales recorded for these dates.</p><Link to="/" className="mt-3 inline-flex text-sm font-semibold text-wave">Record a sale →</Link></div>}
+      </section>
       <details className="panel p-5">
         <summary className="cursor-pointer text-sm font-bold text-wave">Import expenses from a receipt or file</summary>
         <p className="mb-4 mt-1 text-sm text-slate-500">Upload a photo, PDF, CSV, or XLSX list. Review the detected lines before importing them as expenses.</p>

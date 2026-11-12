@@ -33,6 +33,8 @@ export default function SalesCharts({ data }) {
   const width = Math.max(500, buckets.length * 48 + 70)
   const plotWidth = width - 70
   const step = plotWidth / Math.max(1, buckets.length)
+  const points = buckets.map((bucket, index) => ({ x: 60 + step * (index + 0.5), y: 175 - bucket.value / peak * 145 }))
+  const trend = points.map(point => `${point.x},${point.y}`).join(' ')
   const financials = [
     { label: 'Sales', value: Number(data.revenue), color: 'var(--action)' },
     { label: 'Expenses', value: Number(data.spent), color: 'var(--chart-muted)' },
@@ -52,20 +54,22 @@ export default function SalesCharts({ data }) {
   })
 
   return <div className="grid gap-5 md:grid-cols-2">
-    <ChartCard title="Sales over time" subtitle={`${bucketSize === 1 ? 'Daily sales' : `Sales grouped into ${bucketSize}-day periods`} · after discounts, excluding cancelled orders.`} className="md:col-span-2">
+    <ChartCard title="Sales trend" subtitle={`${bucketSize === 1 ? 'Daily sales' : `Sales grouped into ${bucketSize}-day periods`} · after discounts, excluding cancelled orders.`} className="md:col-span-2">
       <div className="overflow-x-auto rounded-xl" tabIndex={0} role="region" aria-label="Sales chart; scroll horizontally for more dates">
         <svg viewBox={`0 0 ${width} 225`} style={{ minWidth: width }} className="h-56 w-full" role="img" aria-label={`Sales from ${displayDate(data.from)} to ${displayDate(data.to)}. Total ${money(data.revenue)}. Exact amounts are listed below.`}>
           {[0, 0.5, 1].map(tick => <g key={tick}>
             <line x1="60" x2={width - 10} y1={175 - tick * 145} y2={175 - tick * 145} stroke="var(--line)" strokeDasharray={tick ? '4 4' : undefined} />
             <text x="52" y={179 - tick * 145} textAnchor="end" fill="#64748b" fontSize="10">{shortMoney(peak * tick)}</text>
           </g>)}
+          {points.length > 1 && <>
+            <polygon points={`${points[0].x},175 ${trend} ${points.at(-1).x},175`} fill="var(--action)" opacity="0.08" />
+            <polyline points={trend} fill="none" stroke="var(--action)" strokeWidth="2.5" strokeLinejoin="round" />
+          </>}
           {buckets.map((bucket, index) => {
-            const barWidth = Math.min(36, step * 0.6)
-            const x = 60 + step * (index + 0.5)
-            const height = bucket.value / peak * 145
+            const { x, y } = points[index]
             return <g key={bucket.from}>
               <title>{displayDate(bucket.from)}{bucket.from !== bucket.to ? ` – ${displayDate(bucket.to)}` : ''}: {money(bucket.value)}</title>
-              <rect x={x - barWidth / 2} y={175 - height} width={barWidth} height={height} rx="3" fill="var(--action)" />
+              <circle cx={x} cy={y} r="4" fill="var(--surface)" stroke="var(--action)" strokeWidth="2" />
               <text x={x} y="199" textAnchor="middle" fill="#64748b" fontSize="10">{bucket.from.slice(5).replace('-', '/')}</text>
             </g>
           })}
@@ -74,6 +78,9 @@ export default function SalesCharts({ data }) {
       {!data.days.length && <p className="mt-2 text-sm text-slate-500">No sales in this period. Choose another date to explore your history.</p>}
       <details className="mt-3 text-xs text-slate-500"><summary className="w-fit cursor-pointer rounded font-semibold text-wave">View chart values</summary><dl className="mt-3 max-h-48 space-y-2 overflow-y-auto">{buckets.map(bucket => <div key={bucket.from} className="flex flex-wrap justify-between gap-2"><dt>{displayDate(bucket.from)}{bucket.from !== bucket.to ? ` – ${displayDate(bucket.to)}` : ''}</dt><dd className="font-semibold text-ocean">{money(bucket.value)}</dd></div>)}</dl></details>
     </ChartCard>
+    <details className="md:col-span-2">
+    <summary className="cursor-pointer text-sm font-semibold text-wave">Payment breakdown & financial comparison</summary>
+    <div className="mt-4 grid gap-5 md:grid-cols-2">
     <ChartCard title="Sales, expenses & profit" subtitle="Compare the totals for your selected period.">
       <div className="space-y-5">{financials.map(item => <div key={item.label}>
         <div className="mb-2 flex flex-wrap justify-between gap-2 text-sm"><span className="text-slate-500">{item.label}</span><span className="font-bold tabular-nums">{money(item.value)}</span></div>
@@ -91,5 +98,7 @@ export default function SalesCharts({ data }) {
       <ul className="mt-5 space-y-3">{payments.map((payment, index) => <li key={`${payment.label}-${index}`} className="flex flex-wrap items-center gap-2 text-xs"><span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ background: payment.color }} /><span className="mr-auto text-slate-500">{payment.label}</span><span className="font-bold">{money(payment.value)}</span><span className="text-slate-400">({paymentTotal ? (payment.value / paymentTotal * 100).toFixed(1) : '0'}%)</span></li>)}</ul>
       {!paymentTotal && <p className="mt-3 text-center text-sm text-slate-500">No payments in this period.</p>}
     </ChartCard>
+    </div>
+    </details>
   </div>
 }

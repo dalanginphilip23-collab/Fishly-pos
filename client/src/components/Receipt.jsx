@@ -22,7 +22,7 @@ function ReceiptContent({ order }) {
     {order.discount > 0 && <><div className="receipt-row"><span>Subtotal</span><span>{money(order.subtotal)}</span></div><div className="receipt-row"><span>Discount</span><span>−{money(order.discount)}</span></div></>}
     <div className="receipt-row receipt-total"><span>TOTAL</span><span>{money(order.total)}</span></div>
     <div className="receipt-row"><span>{order.payment_method === 'cash' ? 'Cash' : 'GCash'}</span><span>{money(order.cash_received ?? order.total)}</span></div>
-    {order.payment_reference && <div className="receipt-row"><span>GCash ref.</span><span>{order.payment_reference}</span></div>}
+    {order.payment_reference && <div className="receipt-row receipt-reference"><span>GCash ref.</span><span>{order.payment_reference}</span></div>}
     {order.change_due != null && <div className="receipt-row"><span>Change</span><span>{money(order.change_due)}</span></div>}
     <hr />
     <p className="receipt-thanks">Thank you! Come back soon.</p>
@@ -59,10 +59,20 @@ export default function Receipt({ order }) {
         <option value="58">58 mm</option><option value="80">80 mm</option>
       </select>
     </label>
-    <p className="mb-4 text-xs text-slate-500">The PDF page fits this receipt automatically. For a thermal printer, choose matching paper, 100% scale, and turn off headers and footers.</p>
+    <p className="mb-2 text-xs text-slate-500">Receipt width: {paper} mm · printable content: {paper === '58' ? '48' : '72'} mm. Page length adjusts to the order.</p>
+    <details className="mb-4 text-xs text-slate-500">
+      <summary className="cursor-pointer font-semibold text-wave">Thermal printer setup</summary>
+      <ol className="mt-2 list-decimal space-y-1 pl-4">
+        <li>Select your POS printer in the print dialog.</li>
+        <li>In its driver settings, choose {paper} mm receipt/roll paper instead of A4, Letter, or bond paper.</li>
+        <li>Use 100% scale, no margins, and turn off browser headers and footers.</li>
+        <li>If available, enable receipt-length/roll mode and cut after each print job in the driver.</li>
+      </ol>
+      <p className="mt-2">Works through an installed operating-system printer driver. Paper length and automatic cutting depend on your printer and driver; test one receipt before use.</p>
+    </details>
     <div className="rounded-xl border border-slate-200 bg-foam p-3">
-      <div className="receipt-paper mx-auto max-w-full bg-white shadow-sm" style={{ width: `${paper}mm` }}><ReceiptContent order={order} /></div>
+      <div className="receipt-paper mx-auto max-w-full bg-white shadow-sm" data-paper={paper} style={{ width: `${paper}mm` }}><ReceiptContent order={order} /></div>
     </div>
-    {createPortal(<div ref={printRef} id="print-receipt" aria-hidden="true" className="receipt-paper" style={{ width: `${paper}mm` }}><style ref={pageStyleRef} /><ReceiptContent order={order} /></div>, document.body)}
+    {createPortal(<div ref={printRef} id="print-receipt" aria-hidden="true" className="receipt-paper" data-paper={paper} style={{ width: `${paper}mm` }}><style ref={pageStyleRef} /><ReceiptContent order={order} /></div>, document.body)}
   </>
 }
