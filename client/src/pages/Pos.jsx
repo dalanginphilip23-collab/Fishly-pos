@@ -121,12 +121,13 @@ export default function Pos() {
         const categoryMatches = term && group.name.toLowerCase().includes(term)
         const visible = !term || categoryMatches
           ? group.products
-          : group.products.filter((product) => `${product.name} ${product.code}`.toLowerCase().includes(term))
+          : group.products.filter((product) => `${product.name} ${product.code} ${product.description || ''}`.toLowerCase().includes(term))
         // Search results that point at one flavor behave like a single product card,
         // while a category match keeps the full flavor list.
         const prices = visible.map((product) => Number(product.price))
         const remaining = visible.reduce((sum, product) => sum + remainingById.get(product.id), 0)
         const inCart = visible.reduce((sum, product) => sum + (quantities.get(product.id) || 0), 0)
+        const descriptions = new Set(visible.map((product) => product.description).filter(Boolean))
         return {
           ...group,
           visible,
@@ -135,6 +136,7 @@ export default function Pos() {
           totalStock: remaining,
           remaining,
           inCart,
+          description: descriptions.size === 1 ? [...descriptions][0] : '',
           photo: visible.find((product) => product.photo_url)?.photo_url || null,
         }
       })
@@ -142,6 +144,7 @@ export default function Pos() {
   }, [filteredProducts, categoriesById, q, quantities, remainingById])
 
   const activeGroup = useMemo(() => groups.find((group) => group.id === groupID) || null, [groups, groupID])
+  const selectedProduct = activeGroup ? activeGroup.visible.find((product) => product.id === selectedFlavor) || null : null
   useEffect(() => {
     if (!activeGroup) return
     setSelectedFlavor(activeGroup.visible.find((product) => (remainingById.get(product.id) || 0) > 0)?.id ?? null)
@@ -208,6 +211,7 @@ export default function Pos() {
               <span className="flex shrink-0 grow flex-col p-3 sm:p-4">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{single ? only.code : 'Pick a flavor'}</span>
                 <span className="mt-1 min-h-10 break-words text-sm font-bold leading-5">{cardName}</span>
+                {group.description && <span className="mt-1 line-clamp-2 text-[11px] leading-snug text-slate-500">{group.description}</span>}
                 {single && Boolean(only.is_combo) && <span className="mt-1 block text-[11px] leading-snug text-slate-500">{only.combo_items?.map((item) => `${item.qty}× ${item.name}`).join(' + ')}</span>}
                 <span className="mt-3 block"><span className="block text-xs text-slate-500">{single ? 'Price' : 'Price range'}</span><span className="mt-1 block break-words text-xl font-semibold leading-tight tracking-tight text-ocean tabular-nums">{price}</span></span>
                 <span className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3"><span className={`text-xs ${group.remaining > 0 && group.remaining <= 10 ? 'text-amber-700' : 'text-slate-500'}`}>{soldOut ? 'Unavailable' : atLimit ? 'Stock limit reached' : `${group.remaining} available`}</span><span className={`flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-semibold ${!soldOut && !atLimit ? 'bg-sky text-wave' : 'bg-slate-100 text-slate-400'}`}><Icon name={!soldOut && !atLimit ? (single ? 'plus' : 'grid') : 'check'} className="!h-4 !w-4" />{action}</span></span>
@@ -229,6 +233,7 @@ export default function Pos() {
               <span className="inline-flex items-center rounded-full bg-sky px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-wave">Choose a flavor</span>
               <h2 id="flavor-picker-title" className="mt-1.5 text-xl font-extrabold tracking-tight">{activeGroup.name}</h2>
               <p className="text-xs text-slate-500">{activeGroup.visible.length} {activeGroup.visible.length === 1 ? 'choice' : 'choices'} available</p>
+              {activeGroup.description && <p className="mt-1 text-xs leading-snug text-slate-500">{activeGroup.description}</p>}
             </div>
             <button type="button" aria-label="Close flavor choices" onClick={() => setGroupID(null)} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-foam text-lg text-slate-500 transition hover:bg-sky hover:text-wave">×</button>
           </header>
@@ -251,6 +256,7 @@ export default function Pos() {
             <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Selected</p>
               <p className="truncate text-sm font-bold">{selectedFlavor ? flavorLabel(activeGroup.visible.find((p) => p.id === selectedFlavor) || {}) || 'None' : 'None'}</p>
+              {!activeGroup.description && selectedProduct?.description && <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-slate-500">{selectedProduct.description}</p>}
             </div>
             <div className="flex shrink-0 gap-2">
               <button type="button" className="btn-ghost text-xs" onClick={() => setGroupID(null)}>Cancel</button>

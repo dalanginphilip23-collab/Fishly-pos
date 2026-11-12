@@ -22,6 +22,7 @@ CREATE TABLE products (
   category_id INT NOT NULL,
   code VARCHAR(20) NOT NULL UNIQUE,
   name VARCHAR(100) NOT NULL,
+  description VARCHAR(255) NULL,
   price DECIMAL(10,2) NOT NULL,
   is_combo TINYINT(1) NOT NULL DEFAULT 0,
   unit_cost DECIMAL(10,2) NULL,

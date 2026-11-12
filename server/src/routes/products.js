@@ -74,7 +74,7 @@ router.get('/', auth(), async (req, res, next) => {
   try {
     const adminView = req.user.role === 'admin' && req.query.all === '1'
     const [rows] = await pool.query(
-      `SELECT p.id, p.category_id, p.code, p.name, p.price, p.is_combo, ${comboStockSql},
+      `SELECT p.id, p.category_id, p.code, p.name, p.description, p.price, p.is_combo, ${comboStockSql},
               p.reorder_level, p.expiry_date, p.active, p.photo_url${adminView || req.user.role === 'admin' ? ', p.unit_cost' : ''}
        FROM products p ${adminView ? '' : 'WHERE p.active = 1'} ORDER BY p.category_id, p.id`
     )

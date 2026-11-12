@@ -32,7 +32,7 @@ The seed creates a single administrator account (`admin` by default, or `ADMIN_U
 - **Receipts / Orders:** review completed and refunded sales, print receipts, and issue full refunds with optional restocking.
 - **Inventory:** receive purchases, optionally mark them as paid (which creates one linked expense), manage suppliers, and review stock movements.
 - **Stock control:** add, remove, waste, or count stock. Opening counts set the exact quantity.
-- **Products:** manage prices, stock, photos, and combo contents. Combos never store their own stock.
+- **Products:** manage names, short descriptions, prices, stock, photos, and combo contents. Combos never store their own stock.
 - **Staff:** administrators manage accounts and PINs. Every person has their own account; PIN changes invalidate other sessions.
 - **Analytics:** total sales, expenses, net profit, best sellers, selling-price breakdown, daily sales, and exports. Expenses can be voided (never deleted) and imports are previewed before recording.
 

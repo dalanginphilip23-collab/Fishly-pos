@@ -63,6 +63,7 @@ export default function ComboEditor({ combo, products, categories, onClose, onSa
     try {
       const body = {
         name: form.name.trim(), code: form.code.trim(), category_id: Number(form.category_id),
+        description: (form.description ?? '').trim() || null,
         request_id: requestRef.current,
         price: Number(form.price),
         stock: 0,
@@ -91,6 +92,7 @@ export default function ComboEditor({ combo, products, categories, onClose, onSa
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="form-label sm:col-span-2">Combo name<input autoFocus className="field" required maxLength="100" placeholder="e.g. Barkada combo" value={form.name} onChange={(e) => set('name', e.target.value)} /></label>
+          <label className="form-label sm:col-span-2">Short description (optional)<textarea className="field min-h-16 resize-y" maxLength="255" rows="2" placeholder="e.g. Fishly Snack + rice + a drink" value={form.description ?? ''} onChange={(e) => set('description', e.target.value)} /><span className="text-xs font-normal text-slate-500">Shown under the combo name on the menu and product list.</span></label>
           <label className="form-label">Combo code<input className="field" required maxLength="20" placeholder="e.g. CB-1" value={form.code} onChange={(e) => set('code', e.target.value)} /></label>
           <label className="form-label">Category<select className="field" required value={form.category_id} onChange={(e) => set('category_id', e.target.value)}><option value="">Select category</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
           <label className="form-label">Combo price (₱)<input className="field" required type="number" min="0" max="99999999.99" step="0.01" placeholder="0.00" value={form.price} onChange={(e) => set('price', e.target.value)} /><span className="text-xs font-normal text-slate-500">The single price charged for the whole bundle.</span></label>

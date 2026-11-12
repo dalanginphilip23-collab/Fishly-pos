@@ -43,11 +43,12 @@ export function payment(subtotal, discount, method, cash) {
 
 export function productFields(body, partial = false) {
   const result = {}
-  for (const key of ['category_id', 'code', 'name', 'price', 'is_combo', 'unit_cost', 'stock', 'reorder_level', 'expiry_date', 'active', 'photo_url']) {
-    if (body[key] === undefined && (partial || key === 'active' || key === 'unit_cost' || key === 'photo_url' || key === 'expiry_date')) continue
+  for (const key of ['category_id', 'code', 'name', 'description', 'price', 'is_combo', 'unit_cost', 'stock', 'reorder_level', 'expiry_date', 'active', 'photo_url']) {
+    if (body[key] === undefined && (partial || key === 'active' || key === 'unit_cost' || key === 'photo_url' || key === 'expiry_date' || key === 'description')) continue
     const defaults = { stock: 0, reorder_level: 10, is_combo: 0 }
     const value = body[key] === undefined && key in defaults ? defaults[key] : body[key]
     if (key === 'code' || key === 'name') result[key] = text(value, key, key === 'code' ? 20 : 100)
+    else if (key === 'description') result[key] = value === null || value === undefined || value === '' ? null : text(value, 'Description', 255)
     else if (key === 'price') result[key] = cents(value, 'Price') / 100
     else if (key === 'unit_cost') result[key] = value === null ? null : cents(value, 'Unit cost') / 100
     else if (key === 'photo_url') result[key] = value === null ? null : text(value, 'Photo URL', 255)

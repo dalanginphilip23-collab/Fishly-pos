@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { applyFishlyCombo, applyMenuCatalog, fishlyComboCategory, menuCategories, migrateMenuCatalog } from '../src/menu-catalog.js'
+import { applyFishlyCombo, applyMenuCatalog, applyProductDescriptions, fishlyComboCategory, menuCategories, migrateMenuCatalog } from '../src/menu-catalog.js'
 
 test('menu updates existing products without resetting stock and adds new items at zero stock', async () => {
   const calls = []
@@ -13,12 +13,13 @@ test('menu updates existing products without resetting stock and adds new items 
   await applyMenuCatalog(conn)
   const update = calls.find(call => call.sql.startsWith('UPDATE products'))
   assert.equal(update.params[2], 60)
-  assert.equal(update.params[3], 42)
+  assert.equal(update.params[4], 42)
   assert.doesNotMatch(update.sql, /stock|active|is_combo/)
   const inserts = calls.filter(call => call.sql.startsWith('INSERT INTO products'))
   assert.equal(inserts.length, 6)
-  assert.ok(inserts.every(call => call.sql.endsWith('VALUES (?,?,?,?,0)')))
+  assert.ok(inserts.every(call => call.sql.endsWith('VALUES (?,?,?,?,?,0)')))
   assert.deepEqual(menuCategories.flatMap(category => category.items).map(item => item[2]), [60, 60, 60, 15, 15, 15, 15])
+  assert.ok(inserts.every(call => call.params[4]))
   const retired = calls.filter(call => call.sql.startsWith('UPDATE products SET active'))
   assert.equal(retired.length, 7)
   assert.ok(retired.every(call => call.sql.endsWith('WHERE code = ? AND name = ?')))
@@ -45,11 +46,12 @@ test('combo menu adds only missing ₱90 items and removes unused categories', a
   } }
   await applyFishlyCombo(conn)
   const inserts = calls.filter(call => call.sql.startsWith('INSERT INTO products'))
-  assert.deepEqual(inserts.map(call => call.params.slice(1)), [
+  assert.deepEqual(inserts.map(call => call.params.slice(1, 4)), [
     ['FC-C', 'Fishly Combo - Classic', 90],
     ['FC-BBQ', 'Fishly Combo - Barbecue', 90],
   ])
-  assert.ok(inserts.every(call => call.sql.endsWith('VALUES (?,?,?,?,0)')))
+  assert.ok(inserts.every(call => call.params[4] === 'Fishly Snack + rice + a drink'))
+  assert.ok(inserts.every(call => call.sql.endsWith('VALUES (?,?,?,?,?,0)')))
   assert.equal(calls.filter(call => call.sql.startsWith('UPDATE products')).length, 0)
   assert.ok(calls.some(call => call.sql === 'DELETE c FROM categories c LEFT JOIN products p ON p.category_id = c.id WHERE p.id IS NULL'))
   assert.deepEqual(fishlyComboCategory.items.map(item => item[2]), [90, 90, 90])
@@ -71,4 +73,13 @@ test('combo menu still applies when the earlier menu version already ran', async
   assert.ok(!calls.some(call => call.sql.startsWith('UPDATE products SET active')))
   assert.ok(calls.some(call => call.sql.startsWith('INSERT INTO menu_migrations') && call.params[0] === 'fishly-poppers-menu-v3'))
   assert.equal(calls.filter(call => call.sql.startsWith('INSERT INTO products')).length, 3)
+})
+
+test('starter descriptions only fill products that have none', async () => {
+  const calls = []
+  const conn = { query: async (sql, params) => { calls.push({ sql, params }); return [[]] } }
+  await applyProductDescriptions(conn)
+  assert.equal(calls.length, 10)
+  assert.ok(calls.every(call => call.sql.includes("description IS NULL OR description = ''")))
+  assert.equal(calls.find(call => call.params[1] === 'FC-C').params[0], 'Fishly Snack + rice + a drink')
 })

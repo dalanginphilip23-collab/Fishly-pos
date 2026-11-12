@@ -143,6 +143,12 @@ export async function migrateSchema() {
     'TINYINT(1) NOT NULL DEFAULT 0 AFTER price'
   )
 
+  await addColumnIfMissing(
+    'products',
+    'description',
+    'VARCHAR(255) NULL AFTER name'
+  )
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS combo_items (
       id INT AUTO_INCREMENT PRIMARY KEY,

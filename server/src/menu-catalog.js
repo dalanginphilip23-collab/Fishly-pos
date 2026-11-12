@@ -1,17 +1,17 @@
 // Fishly Poppers menu confirmed by the store owner.
 export const menuCategories = [
   { name: 'Popper Fish With Rice Cup', sort: 1, items: [
-    ['RC-R', 'Popper Fish With Rice Cup - Regular', 60],
-    ['RC-S', 'Popper Fish With Rice Cup - Spicy', 60],
-    ['RC-BBQ', 'Popper Fish With Rice Cup - Barbecue', 60],
+    ['RC-R', 'Popper Fish With Rice Cup - Regular', 60, '5 pcs popper fish with rice cup'],
+    ['RC-S', 'Popper Fish With Rice Cup - Spicy', 60, '5 pcs spicy popper fish with rice cup'],
+    ['RC-BBQ', 'Popper Fish With Rice Cup - Barbecue', 60, '5 pcs barbecue popper fish with rice cup'],
   ] },
   { name: 'Drinks', sort: 3, items: [
-    ['MJ', 'Melon Juice', 15],
+    ['MJ', 'Melon Juice', 15, 'Chilled melon juice'],
   ] },
   { name: 'Pastillas', sort: 4, items: [
-    ['PS-C', 'Pastillas - Coffee', 15],
-    ['PS-O', 'Pastillas - Oreo', 15],
-    ['PS-M', 'Pastillas - Milo', 15],
+    ['PS-C', 'Pastillas - Coffee', 15, 'Pastillas with coffee'],
+    ['PS-O', 'Pastillas - Oreo', 15, 'Pastillas with Oreo'],
+    ['PS-M', 'Pastillas - Milo', 15, 'Pastillas with Milo'],
   ] },
 ]
 
@@ -22,9 +22,9 @@ export const fishlyComboCategory = {
   name: 'Fishly Combo',
   sort: 2,
   items: [
-    ['FC-C', 'Fishly Combo - Classic', 90],
-    ['FC-S', 'Fishly Combo - Spicy', 90],
-    ['FC-BBQ', 'Fishly Combo - Barbecue', 90],
+    ['FC-C', 'Fishly Combo - Classic', 90, 'Fishly Snack + rice + a drink'],
+    ['FC-S', 'Fishly Combo - Spicy', 90, 'Fishly Snack + rice + a drink'],
+    ['FC-BBQ', 'Fishly Combo - Barbecue', 90, 'Fishly Snack + rice + a drink'],
   ],
 }
 
@@ -50,12 +50,12 @@ export async function applyMenuCatalog(conn) {
     } else {
       await conn.query('UPDATE categories SET sort_order = ? WHERE id = ?', [category.sort, categoryId])
     }
-    for (const [code, name, price] of category.items) {
+    for (const [code, name, price, description = null] of category.items) {
       const [[product]] = await conn.query('SELECT id FROM products WHERE code = ? FOR UPDATE', [code])
       if (product) {
-        await conn.query('UPDATE products SET category_id = ?, name = ?, price = ? WHERE id = ?', [categoryId, name, price, product.id])
+        await conn.query('UPDATE products SET category_id = ?, name = ?, price = ?, description = ? WHERE id = ?', [categoryId, name, price, description, product.id])
       } else {
-        await conn.query('INSERT INTO products (category_id, code, name, price, stock) VALUES (?,?,?,?,0)', [categoryId, code, name, price])
+        await conn.query('INSERT INTO products (category_id, code, name, price, description, stock) VALUES (?,?,?,?,?,0)', [categoryId, code, name, price, description])
       }
     }
   }
@@ -78,10 +78,10 @@ export async function applyFishlyCombo(conn) {
   await conn.query("UPDATE categories SET sort_order = 3 WHERE name = 'Drinks'")
   await conn.query("UPDATE categories SET sort_order = 4 WHERE name = 'Pastillas'")
 
-  for (const [code, name, price] of fishlyComboCategory.items) {
+  for (const [code, name, price, description = null] of fishlyComboCategory.items) {
     const [[product]] = await conn.query('SELECT id FROM products WHERE code = ? FOR UPDATE', [code])
     if (!product) {
-      await conn.query('INSERT INTO products (category_id, code, name, price, stock) VALUES (?,?,?,?,0)', [categoryId, code, name, price])
+      await conn.query('INSERT INTO products (category_id, code, name, price, description, stock) VALUES (?,?,?,?,?,0)', [categoryId, code, name, price, description])
     }
   }
 
@@ -90,9 +90,23 @@ export async function applyFishlyCombo(conn) {
   await conn.query('DELETE c FROM categories c LEFT JOIN products p ON p.category_id = c.id WHERE p.id IS NULL')
 }
 
+// Fill in the starter descriptions for catalogs created before the description
+// column existed. An admin's own wording is never overwritten.
+export async function applyProductDescriptions(conn) {
+  for (const category of [...menuCategories, fishlyComboCategory]) {
+    for (const [code, , , description] of category.items) {
+      await conn.query(
+        "UPDATE products SET description = ? WHERE code = ? AND (description IS NULL OR description = '')",
+        [description, code]
+      )
+    }
+  }
+}
+
 const menuMigrations = [
   { version: 'fishly-poppers-menu-v2', apply: applyMenuCatalog },
   { version: 'fishly-poppers-menu-v3', apply: applyFishlyCombo },
+  { version: 'fishly-poppers-menu-v4', apply: applyProductDescriptions },
 ]
 
 export async function migrateMenuCatalog(pool) {
