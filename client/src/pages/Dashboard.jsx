@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api, download, openFile } from '../api'
 import { money } from '../utils'
 import BestSellers from '../components/BestSellers'
@@ -22,6 +23,13 @@ export default function Dashboard() {
   const [busy, setBusy] = useState(false)
   const [exporting, setExporting] = useState(false)
   const expenseRequest = useRef(crypto.randomUUID())
+  const expensePanel = useRef(null)
+  const openExpense = () => {
+    if (!expensePanel.current) return
+    expensePanel.current.open = true
+    expensePanel.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    expensePanel.current.querySelector('input')?.focus({ preventScroll: true })
+  }
   const presets = [
     ['Today', today(), today()],
     ['Yesterday', shiftDate(today(), -1), shiftDate(today(), -1)],
@@ -145,17 +153,20 @@ export default function Dashboard() {
 
   return (
     <div className="admin-dashboard relative h-full overflow-y-auto p-4 md:p-7 lg:p-8">
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-10">
-        <img src="/logo.jpg" alt="" className="h-[560px] w-[560px] rounded-full object-cover" />
-      </div>
       <div className="relative mx-auto max-w-[1440px] space-y-6">
       <div className="workspace-heading flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3"><span className="workspace-heading-icon hidden sm:flex"><Icon name="chart" /></span><div><h1 className="page-title">Sales overview</h1><p className="page-subtitle">Track sales, expenses, and net profit.</p></div></div>
+        <div className="flex items-center gap-3"><span className="workspace-heading-icon hidden sm:flex"><Icon name="chart" /></span><div><p className="mb-1 text-xs font-semibold uppercase tracking-widest text-wave">Fishly Poppers</p><h1 className="page-title">Business overview</h1><p className="page-subtitle">Your sales, spending, and daily operations in one place.</p></div></div>
         <div className="flex flex-wrap items-center gap-2">
           <button disabled={loading || exporting} className="btn-ghost flex items-center gap-2 text-sm" onClick={exportSales}><Icon name={exporting ? 'refresh' : 'download'} className={exporting ? 'animate-spin' : ''} />{exporting ? 'Preparing…' : 'Export to Excel'}</button>
           <button disabled={loading || busy} className="btn-ghost flex items-center gap-2 text-sm" onClick={() => load()}><Icon name="refresh" className={loading ? 'animate-spin' : ''} />Refresh report</button>
         </div>
       </div>
+      <section aria-label="Quick actions" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Link to="/" className="btn-primary flex items-center justify-center gap-2"><Icon name="plus" />New sale</Link>
+        <button type="button" disabled={loading || !data} onClick={openExpense} className="btn-ghost flex items-center justify-center gap-2"><Icon name="wallet" />Add expense</button>
+        <Link to="/inventory" className="btn-ghost flex items-center justify-center gap-2"><Icon name="bag" />Purchases</Link>
+        <Link to="/stock" className="btn-ghost flex items-center justify-center gap-2"><Icon name="grid" />Check stock</Link>
+      </section>
       {exportError && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm font-bold text-coral">{exportError}</p>}
       <section className="panel flex flex-wrap items-center justify-between gap-4 p-4" aria-label="Report date filters">
         <div className="flex flex-wrap gap-1 rounded-xl bg-foam p-1">{presets.map(([label, from, to]) => <button key={label} type="button" aria-pressed={range.from === from && range.to === to} onClick={() => setRange({ from, to })} className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${range.from === from && range.to === to ? 'bg-white text-wave shadow-sm' : 'text-slate-500 hover:text-ocean'}`}>{label}</button>)}</div>
@@ -174,14 +185,15 @@ export default function Dashboard() {
       {error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm font-bold text-coral">{error}</p>}
       {loading && <div role="status"><p className="mb-3 text-sm text-slate-500">Loading sales…</p><div className="grid gap-3 sm:grid-cols-3">{[1, 2, 3].map(i => <div key={i} className="panel h-32 animate-pulse bg-slate-100" />)}</div></div>}
       {data && !loading && <>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-        {[['Total sales', money(data.revenue)], ['Rent', money(data.rent || 0)], ['Total expenses', money(data.spent)], [data.net < 0 ? 'Net loss' : 'Net profit', money(data.net)]].map(([label, value]) => (
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {[['Total sales', money(data.revenue)], ['Total expenses', money(data.spent)], [data.net < 0 ? 'Net loss' : 'Net profit', money(data.net)]].map(([label, value]) => (
           <div key={label} className={`panel p-5 ${label === 'Net profit' ? 'metric-feature' : label === 'Net loss' ? 'text-coral' : ''}`}>
             <p className="text-sm font-bold opacity-70">{label}</p>
             <p className="mt-3 break-words text-3xl font-bold tracking-tight tabular-nums">{value}</p>
           </div>
         ))}
       </div>
+      <p className="text-xs text-slate-500">Net profit here is sales minus recorded expenses. Product costs are shown separately in detailed reports.</p>
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-slate-200/70 bg-white/60 px-4 py-3 text-xs text-slate-500"><span><strong className="text-ocean">{data.orders}</strong> completed sales</span><span>Average sale <strong className="text-ocean">{money(data.orders ? data.revenue / data.orders : 0)}</strong></span><span>Discounts included · Cancelled orders excluded</span></div>
       <SalesCharts data={data} />
       <details className="panel p-5">
@@ -208,8 +220,8 @@ export default function Dashboard() {
         </div>}
       </details>
 
-      <section className="panel p-5">
-        <h2 className="text-lg font-bold">Add expense</h2>
+      <details ref={expensePanel} className="panel scroll-mt-4 p-5">
+        <summary className="cursor-pointer text-base font-bold">Add expense</summary>
         <form onSubmit={addExpense} className="mt-4 grid gap-3 sm:grid-cols-2">
           <label className="form-label">Category
             <select className="field" value={expense.category} onChange={(e) => setExpense({ ...expense, category: e.target.value })}>
@@ -254,7 +266,10 @@ export default function Dashboard() {
           </div>
         </form>
         <p className="mt-3 text-xs text-slate-500">Recorded for today.</p>
-      </section>
+      </details>
+      <details className="panel p-5">
+      <summary className="cursor-pointer text-base font-bold">Detailed reports & expense history</summary>
+      <div className="mt-5 space-y-5">
       <BestSellers products={data.top} from={data.from} to={data.to} />
       <section className="panel overflow-hidden">
         <header className="p-5"><h2 className="text-lg font-bold">Selling prices & quantities</h2><p className="mt-1 text-xs text-slate-500">The actual price charged at checkout. If a price changes, sales at each price appear separately.</p></header>
@@ -317,10 +332,20 @@ export default function Dashboard() {
           <span>Other: <strong className="text-ocean">{money(data.otherExpenses || 0)}</strong></span>
         </div>
       </section>
+      </div>
+      </details>
       </>}
       </div>
       <aside className="space-y-4 xl:sticky xl:top-0">
-        <SalesCalendar range={range} onChange={setRange} />
+        <section className="panel p-5">
+          <h2 className="text-base font-bold">Your daily workflow</h2>
+          <ol className="mt-4 space-y-5 text-sm">
+            <li><Link to="/" className="font-semibold text-wave">1. Record a sale</Link><p className="mt-1 text-xs leading-5 text-slate-500">Pick items and flavors, then collect cash or GCash.</p></li>
+            <li><Link to="/inventory" className="font-semibold text-wave">2. Record what you buy</Link><p className="mt-1 text-xs leading-5 text-slate-500">Receive stock and track your supplier purchases.</p></li>
+            <li><Link to="/shifts" className="font-semibold text-wave">3. Finish the day</Link><p className="mt-1 text-xs leading-5 text-slate-500">Count your cash drawer and review your totals.</p></li>
+          </ol>
+        </section>
+        <details className="panel p-4"><summary className="cursor-pointer text-sm font-semibold">Browse calendar</summary><div className="mt-4"><SalesCalendar range={range} onChange={setRange} /></div></details>
         <p className="px-1 text-xs leading-6 text-slate-500">Reports use Philippine time. Net profit is sales minus recorded expenses.</p>
       </aside>
       </div>
