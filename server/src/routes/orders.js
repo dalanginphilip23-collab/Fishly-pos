@@ -3,6 +3,7 @@ import { pool, fail } from '../db.js'
 import { auth } from '../middleware/auth.js'
 import { cartItems, cents, integer, payment, text, dateRange } from '../validation.js'
 import { mutate, lockInventory } from '../mutations.js'
+import { deleteOrder } from '../order-deletion.js'
 
 const router = Router()
 
@@ -189,6 +190,17 @@ router.post('/:id/refund', auth(), async (req, res, next) => {
       return { ...(await savedOrder(conn, orderId)), refund: { amount: order.total, restock, reason } }
     })
     res.status(201).json(result)
+  } catch (e) { next(e) }
+})
+
+router.delete('/:id', auth(), async (req, res, next) => {
+  try {
+    const orderId = integer(Number(req.params.id), 'Order ID', 1)
+    if (typeof req.body.restock !== 'boolean') throw fail(400, 'Choose whether to return items to stock')
+    const result = await mutate(req, `order.delete.${orderId}`, conn => deleteOrder(conn, {
+      orderId, userId: req.user.id, restock: req.body.restock,
+    }))
+    res.json(result)
   } catch (e) { next(e) }
 })
 

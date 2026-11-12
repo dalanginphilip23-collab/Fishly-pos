@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 import { money } from '../utils'
 import Modal from '../components/Modal'
@@ -14,6 +14,8 @@ export default function Orders() {
   const [loading, setLoading] = useState(true)
   const [receipt, setReceipt] = useState(null)
   const [refund, setRefund] = useState(null)
+  const [deleting, setDeleting] = useState(null)
+  const [message, setMessage] = useState('')
   const [range, setRange] = useState({ from: businessToday(), to: businessToday(), q: '' })
   const closeReceipt = useCallback(() => setReceipt(null), [])
 
@@ -47,15 +49,16 @@ export default function Orders() {
         <label className="form-label min-w-48 flex-1">Receipt number<input className="field !py-2" placeholder="Search receipt…" value={range.q} onChange={e => setRange({ ...range, q: e.target.value })} /></label>
       </section>
       {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-coral">{error}</p>}
+      {message && <p role="status" className="rounded-xl bg-sky p-3 text-sm text-wave">{message}</p>}
       {loading ? <p role="status" className="py-12 text-center text-slate-500">Loading sales…</p> : (
         <div className="min-w-0">
           <div className="space-y-3 md:hidden">{orders.map(order => <article key={order.id} className="panel p-4">
             <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-bold">{order.order_no}</h2><span className="text-sm font-bold tabular-nums">{money(order.total)}</span></div>
             <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500"><span>{new Date(order.created_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}</span><span>· {order.payment_method === 'cash' ? 'Cash' : 'GCash'}</span>{order.status === 'cancelled' && <span className="font-semibold text-coral">· Refunded</span>}</div>
-            <div className="mt-4 flex gap-2"><button className="btn-ghost flex-1 text-sm" onClick={() => setReceipt(order)}>View receipt</button>{user.role === 'admin' && order.status !== 'cancelled' && <button className="btn-ghost flex-1 text-sm" onClick={() => setRefund(order)}>Refund</button>}</div>
+            <div className="mt-4 flex flex-wrap gap-2"><button className="btn-ghost flex-1 text-sm" onClick={() => setReceipt(order)}>View receipt</button>{user.role === 'admin' && order.status !== 'cancelled' && <button className="btn-ghost flex-1 text-sm" onClick={() => setRefund(order)}>Refund</button>}<button className="btn text-sm text-coral" onClick={() => setDeleting(order)} aria-label={`Delete ${order.order_no}`}>Delete</button></div>
           </article>)}</div>
           <div className="panel hidden overflow-x-auto md:block"><table className="w-full whitespace-nowrap text-left text-sm">
-            <thead className="bg-foam text-xs text-slate-500"><tr>{['Receipt no.', 'Date & time', 'Payment', 'Total', 'Receipt', ...(user.role === 'admin' ? ['Correction'] : [])].map((label) => <th key={label} className="p-4">{label}</th>)}</tr></thead>
+            <thead className="bg-foam text-xs text-slate-500"><tr>{['Receipt no.', 'Date & time', 'Payment', 'Total', 'Receipt', 'Actions'].map((label) => <th key={label} className="p-4">{label}</th>)}</tr></thead>
             <tbody>{orders.map((order) => (
               <tr key={order.id} className="border-t border-slate-100 transition-colors hover:bg-sky/40">
                 <td className="p-4 font-bold">{order.order_no}{order.status === 'cancelled' && <span className="ml-2 text-xs text-coral">Refunded</span>}</td>
@@ -63,7 +66,7 @@ export default function Orders() {
                 <td className="p-4"><span className="rounded-md bg-foam px-3 py-1 text-xs font-medium text-slate-500">{order.payment_method === 'cash' ? 'Cash' : 'GCash'}{order.payment_reference ? ` · ${order.payment_reference}` : ''}</span></td>
                 <td className="p-4 font-bold">{money(order.total)}</td>
                 <td className="p-4"><button className="btn-ghost text-xs" onClick={() => setReceipt(order)}>View receipt</button></td>
-                {user.role === 'admin' && <td className="p-4">{order.status !== 'cancelled' ? <button className="btn-ghost text-xs" onClick={() => setRefund(order)}>Refund</button> : <span className="text-xs text-slate-400">Completed</span>}</td>}
+                <td className="p-4"><div className="flex items-center gap-2">{user.role === 'admin' && order.status !== 'cancelled' && <button className="btn-ghost text-xs" onClick={() => setRefund(order)}>Refund</button>}<button className="btn text-xs text-coral" onClick={() => setDeleting(order)} aria-label={`Delete ${order.order_no}`}>Delete</button></div></td>
               </tr>
             ))}</tbody>
           </table></div>
@@ -77,8 +80,42 @@ export default function Orders() {
         <div className="mt-5 flex gap-2"><button className="btn-ghost flex-1" onClick={closeReceipt}>Close</button><button className="btn-primary flex-1" onClick={() => window.print()}>Print receipt</button></div>
       </Modal>}
       {refund && <RefundModal order={refund} onClose={() => setRefund(null)} onDone={() => { setRefund(null); load() }} />}
+      {deleting && <DeleteOrderModal order={deleting} onClose={() => setDeleting(null)} onDone={() => {
+        setMessage(`Receipt ${deleting.order_no} deleted. Sales reports have been updated.`)
+        setDeleting(null)
+        load()
+      }} />}
     </div>
   )
+}
+
+function DeleteOrderModal({ order, onClose, onDone }) {
+  const [restock, setRestock] = useState(order.status !== 'cancelled')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const request = useRef(null)
+  const submit = async (event) => {
+    event.preventDefault()
+    if (busy) return
+    setBusy(true)
+    setError('')
+    // A retry after a lost response must not restore inventory twice.
+    request.current ||= { restock, request_id: crypto.randomUUID() }
+    try {
+      await api(`/orders/${order.id}`, { method: 'DELETE', body: request.current })
+      onDone()
+    } catch (err) { setError(err.message) }
+    finally { setBusy(false) }
+  }
+  return <Modal labelledBy="delete-order-title" onClose={() => { if (!busy) onClose() }}>
+    <h2 id="delete-order-title" className="text-xl font-bold">Delete {order.order_no}?</h2>
+    <p className="mt-2 text-sm text-slate-500">Permanently remove this {money(order.total)} order from receipts and sales reports. This cannot be undone and does not send money back to the customer.</p>
+    <form onSubmit={submit} className="mt-4 space-y-4">
+      {order.status !== 'cancelled' ? <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-3 text-sm"><input type="checkbox" checked={restock} disabled={busy || Boolean(request.current)} onChange={event => setRestock(event.target.checked)} className="mt-1 h-4 w-4" /><span><span className="block font-bold">Return items to stock</span><span className="text-xs text-slate-500">Uncheck if the food was already prepared or used.</span></span></label> : <p className="text-sm text-slate-500">This order was already refunded. Stock will not be changed again.</p>}
+      {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-coral">{error}</p>}
+      <div className="flex gap-2"><button type="button" className="btn-ghost flex-1" disabled={busy} onClick={onClose}>Cancel</button><button className="btn flex-1 bg-coral text-white" disabled={busy}>{busy ? 'Deleting…' : 'Delete order'}</button></div>
+    </form>
+  </Modal>
 }
 
 function RefundModal({ order, onClose, onDone }) {
