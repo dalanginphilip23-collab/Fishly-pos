@@ -10,7 +10,6 @@ import Customers from './pages/Customers'
 import Stock from './pages/Stock'
 import Inventory from './pages/Inventory'
 import Staff from './pages/Staff'
-import Shifts from './pages/Shifts'
 
 function Guard({ children }) {
   const { user, ready } = useAuth()
@@ -32,7 +31,7 @@ export default function App() {
         <Route path="stock" element={<Stock />} />
         <Route path="inventory" element={<Inventory />} />
         <Route path="staff" element={<Staff />} />
-        <Route path="shifts" element={<Shifts />} />
+        <Route path="shifts" element={<Navigate to="/" replace />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

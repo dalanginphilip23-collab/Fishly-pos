@@ -197,13 +197,13 @@ export default function Pos() {
                 <ProductPhoto src={group.photo} name={cardName} className={`aspect-[4/3] w-full ${soldOut ? 'grayscale opacity-60' : ''}`} />
                 {group.inCart > 0 && <span className="absolute right-3 top-3 rounded-full bg-wave px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">{group.inCart} in order</span>}
                 {!single && <span className="absolute left-3 top-3 rounded-full bg-ocean/85 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">{group.visible.length} choices</span>}
-                {single && only.is_combo && <span className="absolute left-3 top-3 rounded-full bg-ocean/85 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">Combo</span>}
+                {single && Boolean(only.is_combo) && <span className="absolute left-3 top-3 rounded-full bg-ocean/85 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">Combo</span>}
                 {soldOut && <span className="absolute inset-0 grid place-items-center"><span className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-coral shadow-sm">Sold out</span></span>}
               </span>
               <span className="flex shrink-0 grow flex-col p-3 sm:p-4">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{single ? only.code : 'Pick a flavor'}</span>
                 <span className="mt-1 min-h-10 break-words text-sm font-bold leading-5">{cardName}</span>
-                {single && only.is_combo && <span className="mt-1 block text-[11px] leading-snug text-slate-500">{only.combo_items?.map((item) => `${item.qty}× ${item.name}`).join(' + ')}</span>}
+                {single && Boolean(only.is_combo) && <span className="mt-1 block text-[11px] leading-snug text-slate-500">{only.combo_items?.map((item) => `${item.qty}× ${item.name}`).join(' + ')}</span>}
                 <span className="mt-3 block"><span className="block text-xs text-slate-500">{single ? 'Price' : 'Price range'}</span><span className="mt-1 block break-words text-xl font-semibold leading-tight tracking-tight text-ocean tabular-nums">{price}</span></span>
                 <span className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3"><span className={`text-xs ${group.remaining > 0 && group.remaining <= 10 ? 'text-amber-700' : 'text-slate-500'}`}>{soldOut ? 'Unavailable' : atLimit ? 'Stock limit reached' : `${group.remaining} available`}</span><span className={`flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-semibold ${!soldOut && !atLimit ? 'bg-sky text-wave' : 'bg-slate-100 text-slate-400'}`}><Icon name={!soldOut && !atLimit ? (single ? 'plus' : 'grid') : 'check'} className="!h-4 !w-4" />{action}</span></span>
               </span>

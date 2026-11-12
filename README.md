@@ -26,10 +26,9 @@ The seed creates a single administrator account (`admin` by default, or `ADMIN_U
 ## Daily workflow
 
 - **One shared workspace:** every account starts at **Register** and uses the same navigation. There is no separate admin dashboard or extra admin PIN. Use **Register → review order → payment**, then **Receipts** to find or print a sale.
-- **Cash drawer:** open or close your own shift and record cash in/out from this page. Shift history is shown underneath. Shift tracking is optional for checkout.
+- **School workflow:** sign in and record sales directly. No shift opening, cash drawer setup, or shift closing is needed.
 - **Manage:** products, purchases, stock, customers, and staff are accessible from the same sidebar. **Overview** shows sales, expenses, profit, and quick actions. Expand **Detailed reports & expense history** for the full breakdown. Moving between pages keeps the current cart.
 - **Register:** group cards combine flavors; stock is shared across combinations, so overselling a shared ingredient is prevented. Payments do not require an open shift. Discounts and cash support centavos. GCash records a reference and requires the cashier to confirm the amount was received in the merchant account.
-- **Shifts:** open with a starting float, record cash in/out movements, and close by counting cash and GCash. Cash and GCash variances are preserved for review.
 - **Receipts / Orders:** review completed and refunded sales, print receipts, and issue full refunds with optional restocking.
 - **Inventory:** receive purchases, optionally mark them as paid (which creates one linked expense), manage suppliers, and review stock movements.
 - **Stock control:** add, remove, waste, or count stock. Opening counts set the exact quantity.

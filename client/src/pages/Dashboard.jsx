@@ -342,7 +342,7 @@ export default function Dashboard() {
           <ol className="mt-4 space-y-5 text-sm">
             <li><Link to="/" className="font-semibold text-wave">1. Record a sale</Link><p className="mt-1 text-xs leading-5 text-slate-500">Pick items and flavors, then collect cash or GCash.</p></li>
             <li><Link to="/inventory" className="font-semibold text-wave">2. Record what you buy</Link><p className="mt-1 text-xs leading-5 text-slate-500">Receive stock and track your supplier purchases.</p></li>
-            <li><Link to="/shifts" className="font-semibold text-wave">3. Finish the day</Link><p className="mt-1 text-xs leading-5 text-slate-500">Count your cash drawer and review your totals.</p></li>
+            <li><Link to="/orders" className="font-semibold text-wave">3. Review your sales</Link><p className="mt-1 text-xs leading-5 text-slate-500">Check completed sales and print receipts when needed.</p></li>
           </ol>
         </section>
         <details className="panel p-4"><summary className="cursor-pointer text-sm font-semibold">Browse calendar</summary><div className="mt-4"><SalesCalendar range={range} onChange={setRange} /></div></details>
