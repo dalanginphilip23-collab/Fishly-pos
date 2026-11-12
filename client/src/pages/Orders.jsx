@@ -39,7 +39,7 @@ export default function Orders() {
   return (
     <div className="workspace-surface flex h-full flex-col gap-5 overflow-y-auto p-4 md:p-7">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <div><h1 className="page-title">{user.role === 'admin' ? 'Orders' : 'Today’s sales'}</h1><p className="page-subtitle">Review payments, print receipts, and correct completed sales.</p></div>
+        <div><h1 className="page-title">Receipts</h1><p className="page-subtitle">Review payments, print receipts, and correct completed sales.</p></div>
         <button className="btn-ghost flex items-center gap-2" disabled={loading} onClick={() => load()}><Icon name="refresh" /><span className="hidden sm:inline">Refresh</span><span className="sr-only sm:hidden">Refresh orders</span></button>
       </header>
       <section className="panel flex flex-wrap items-end gap-3 p-4" aria-label="Receipt filters">

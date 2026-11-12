@@ -16,7 +16,7 @@ export default function Login() {
     setLightOnly(true)
     return () => setLightOnly(false)
   }, [setLightOnly])
-  if (user) return <Navigate to={user.role === 'admin' ? '/dashboard' : '/'} replace />
+  if (user) return <Navigate to="/" replace />
   const submit = async (event) => {
     event.preventDefault()
     if (busy) return
@@ -45,7 +45,7 @@ export default function Login() {
           {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-coral">{error}</p>}
           <button className="btn-primary flex w-full items-center justify-center gap-3 !py-3.5" disabled={!username.trim() || !pin || busy}>{busy ? 'Signing in…' : 'Sign in'}<Icon name={busy ? 'refresh' : 'arrow'} className={`!h-4 !w-4 ${busy ? 'animate-spin' : ''}`} /></button>
         </form>
-        <div className="mt-7 border-t border-slate-200 pt-5"><p className="text-xs leading-6 text-slate-500">Your account opens the right workspace for your role.</p><p className="mt-3 text-xs leading-6 text-slate-500"><span className="font-semibold text-ocean">Need help signing in?</span><br />Contact your store administrator for access.</p></div>
+        <div className="mt-7 border-t border-slate-200 pt-5"><p className="text-xs leading-6 text-slate-500">One workspace for sales, stock, and daily reports. Everyone starts at the register.</p><p className="mt-3 text-xs leading-6 text-slate-500"><span className="font-semibold text-ocean">Need help signing in?</span><br />Contact your store administrator for access.</p></div>
       </div>
       </section>
       </div>

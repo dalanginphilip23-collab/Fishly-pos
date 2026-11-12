@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useCart, availableInCart } from '../context/Cart'
 import { money } from '../utils'
@@ -25,7 +24,6 @@ function flavorLabel(product) {
 }
 
 export default function Pos() {
-  const navigate = useNavigate()
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
   const [q, setQ] = useState('')
@@ -36,9 +34,6 @@ export default function Pos() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
-  const [adminOpen, setAdminOpen] = useState(false)
-  const [adminPin, setAdminPin] = useState('')
-  const [adminError, setAdminError] = useState('')
   const cartRef = useRef(null)
   const { dispatch, lines, count, total } = useCart()
 
@@ -170,7 +165,7 @@ export default function Pos() {
         <img src="/logo.jpg" alt="" className="h-[560px] w-[560px] rounded-full object-cover" />
       </div>
       <section inert={drawer ? '' : undefined} className="flex min-h-0 min-w-0 flex-1 flex-col p-3 sm:p-5 xl:p-6">
-        <header className="workspace-heading mb-5 flex shrink-0 items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-3"><span className="workspace-heading-icon hidden sm:flex"><Icon name="register" /></span><div className="min-w-0"><h1 className="page-title">Register</h1><p className="page-subtitle">Choose a menu group, then pick a flavor.</p></div></div><div className="flex shrink-0 items-center gap-2"><span className="hidden whitespace-nowrap py-2 text-sm text-slate-500 xl:block">{new Date().toLocaleDateString('en-PH', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</span><button type="button" onClick={() => { setAdminError(''); setAdminPin(''); setAdminOpen(true) }} className="btn-ghost flex items-center gap-2 text-sm" title="Open the admin workspace" aria-label="Open admin workspace"><Icon name="admin" /><span className="hidden sm:inline">Admin</span></button></div></header>
+        <header className="workspace-heading mb-5 flex shrink-0 items-center justify-between gap-3"><div className="flex min-w-0 items-center gap-3"><span className="workspace-heading-icon hidden sm:flex"><Icon name="register" /></span><div className="min-w-0"><h1 className="page-title">Register</h1><p className="page-subtitle">Choose items → Review order → Take payment.</p></div></div><span className="hidden whitespace-nowrap py-2 text-sm text-slate-500 xl:block">{new Date().toLocaleDateString('en-PH', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })}</span></header>
         <div className="relative mb-3 shrink-0"><Icon name="search" className="absolute left-4 top-3 text-slate-400" /><input aria-label="Search menu by flavor, product, or code" className="field !pl-12 !py-3" placeholder="Search a flavor or product…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
         <div role="group" aria-label="Filter menu by category" className="mb-3 flex shrink-0 flex-wrap gap-2">
           <button type="button" aria-pressed={categoryFilter === 'all'} onClick={() => setCategoryFilter('all')} className={chip(categoryFilter === 'all')}>All</button>
@@ -261,24 +256,6 @@ export default function Pos() {
             </div>
           </footer>
         </div>
-      </Modal>}
-      {adminOpen && <Modal labelledBy="admin-pin-title" onClose={() => setAdminOpen(false)}>
-        <h2 id="admin-pin-title" className="text-xl font-bold">Administrator access</h2>
-        <p className="mt-1 text-sm text-slate-500">Enter the administrator PIN to open the management workspace.</p>
-        <form onSubmit={(e) => {
-          e.preventDefault()
-          if (adminPin === '0000') {
-            localStorage.setItem('fp_admin_unlocked', 'true')
-            setAdminOpen(false)
-            navigate('/dashboard')
-          } else {
-            setAdminError('Incorrect administrator PIN.')
-          }
-        }} className="mt-4 space-y-3">
-          <label className="form-label">Administrator PIN<input autoFocus required type="password" className="field" value={adminPin} onChange={(e) => { setAdminPin(e.target.value); setAdminError('') }} /></label>
-          {adminError && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-coral">{adminError}</p>}
-          <div className="flex gap-2"><button type="button" className="btn-ghost flex-1" onClick={() => setAdminOpen(false)}>Cancel</button><button disabled={!adminPin} className="btn-primary flex-1">Open admin</button></div>
-        </form>
       </Modal>}
     </div>
   )

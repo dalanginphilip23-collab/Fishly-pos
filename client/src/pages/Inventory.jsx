@@ -10,7 +10,7 @@ const tabs = ['Stock', 'Movements', 'Purchases', 'Suppliers']
 
 export default function Inventory() {
   const { user } = useAuth()
-  const isAdmin = user.role === 'admin' || localStorage.getItem('fp_admin_unlocked') === 'true'
+  const isAdmin = user.role === 'admin'
   const [deletingMovement, setDeletingMovement] = useState(null)
   const [message, setMessage] = useState('')
   const [tab, setTab] = useState('Stock')

@@ -12,20 +12,24 @@ test('menu updates existing products without resetting stock and adds new items 
   } }
   await applyMenuCatalog(conn)
   const update = calls.find(call => call.sql.startsWith('UPDATE products'))
-  assert.equal(update.params[2], 50)
+  assert.equal(update.params[2], 60)
   assert.equal(update.params[3], 42)
   assert.doesNotMatch(update.sql, /stock|active|is_combo/)
   const inserts = calls.filter(call => call.sql.startsWith('INSERT INTO products'))
-  assert.equal(inserts.length, 12)
+  assert.equal(inserts.length, 6)
   assert.ok(inserts.every(call => call.sql.endsWith('VALUES (?,?,?,?,0)')))
-  assert.deepEqual(menuCategories.flatMap(category => category.items).map(item => item[2]), [50, 50, 50, 70, 70, 70, 20, 20, 20, 20, 20, 20, 15])
+  assert.deepEqual(menuCategories.flatMap(category => category.items).map(item => item[2]), [60, 60, 60, 15, 15, 15, 15])
+  const retired = calls.filter(call => call.sql.startsWith('UPDATE products SET active'))
+  assert.equal(retired.length, 7)
+  assert.ok(retired.every(call => call.sql.endsWith('WHERE code = ? AND name = ?')))
+  assert.ok(retired.every(call => !/stock|DELETE/.test(call.sql)))
 })
 
 test('completed menu migration does not overwrite subsequent admin edits', async () => {
   const calls = []
   const conn = {
     beginTransaction: async () => {}, commit: async () => {}, rollback: async () => {}, release: () => {},
-    query: async (sql) => { calls.push(sql); return sql.startsWith('SELECT version') ? [[{ version: 'rice-to-meet-you-menu-v1' }]] : [[]] },
+    query: async (sql) => { calls.push(sql); return sql.startsWith('SELECT version') ? [[{ version: 'fishly-poppers-menu-v2' }]] : [[]] },
   }
   await migrateMenuCatalog({ query: async () => {}, getConnection: async () => conn })
   assert.ok(calls.every(sql => sql.startsWith('SELECT')))

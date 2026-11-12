@@ -1,31 +1,7 @@
 
 import mysql from 'mysql2/promise'
 import 'dotenv/config'
-
-function getSSLConfig() {
-  if (process.env.DB_SSL === 'false') {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('SSL must be enabled in production')
-    }
-    return undefined
-  }
-
-  const base64 = process.env.DB_CA_CERT_BASE64
-  const raw = process.env.DB_CA_CERT
-
-  const ca = base64
-    ? Buffer.from(base64, 'base64').toString('utf8')
-    : raw?.replace(/\\n/g, '\n')
-
-  if (!ca || !ca.includes('-----BEGIN CERTIFICATE-----')) {
-    throw new Error('Missing or invalid Aiven CA certificate')
-  }
-
-  return {
-    ca,
-    rejectUnauthorized: true
-  }
-}
+import { getSSLConfig } from './db-ssl.js'
 
 export const pool = mysql.createPool({
   host: process.env.DB_HOST,

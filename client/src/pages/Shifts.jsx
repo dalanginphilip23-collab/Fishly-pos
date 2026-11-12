@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api'
 import { money } from '../utils'
 import Icon from '../components/Icon'
+import ShiftBar from '../components/ShiftBar'
 
 export default function Shifts() {
   const [rows, setRows] = useState([])
@@ -15,9 +16,10 @@ export default function Shifts() {
   return <div className="workspace-surface h-full overflow-y-auto p-4 md:p-7">
     <div className="mx-auto max-w-7xl space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
-        <div><h1 className="page-title">Shift reconciliation</h1><p className="page-subtitle">Cash drawer and GCash totals for each closed shift.</p></div>
+        <div><h1 className="page-title">Cash drawer</h1><p className="page-subtitle">Open your shift, record cash in or out, and count the drawer at closing.</p></div>
         <button className="btn-ghost inline-flex items-center gap-2" disabled={loading} onClick={load}><Icon name="refresh" />Refresh</button>
       </header>
+      <ShiftBar onShiftChange={load} />
       {error && <p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-coral">{error}</p>}
       <section className="panel overflow-hidden">
         {loading ? <p className="p-12 text-center text-sm text-slate-500">Loading shifts…</p> : !rows.length ? <p className="p-12 text-center text-sm text-slate-500">No shifts recorded yet.</p> : <div className="overflow-x-auto"><table className="w-full whitespace-nowrap text-left text-sm">
