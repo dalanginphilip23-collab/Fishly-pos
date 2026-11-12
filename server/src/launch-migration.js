@@ -1,9 +1,11 @@
 import { pool } from './db.js'
+import { hasColumn, rememberColumn, rememberTable } from './schema-info.js'
 
 export async function migrateLaunchSchema() {
   const add = async (table, name, definition) => {
-    const [rows] = await pool.query('SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?', [table, name])
-    if (!rows.length) await pool.query(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`)
+    if (await hasColumn(table, name)) return
+    await pool.query(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`)
+    await rememberColumn(table, name)
   }
   await add('products', 'photo_url', 'VARCHAR(255) NULL')
   await add('order_items', 'unit_cost', 'DECIMAL(10,2) NULL')
@@ -19,7 +21,9 @@ export async function migrateLaunchSchema() {
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, scope, request_id)
   )`)
+  await rememberTable('mutation_requests')
   await pool.query('CREATE TABLE IF NOT EXISTS inventory_lock (id INT PRIMARY KEY)')
+  await rememberTable('inventory_lock')
   await pool.query('INSERT IGNORE INTO inventory_lock (id) VALUES (1)')
   await pool.query(`CREATE TABLE IF NOT EXISTS shifts (
     id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL,
@@ -29,18 +33,21 @@ export async function migrateLaunchSchema() {
     notes VARCHAR(500) NULL, opened_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     closed_at TIMESTAMP NULL, INDEX (user_id, closed_at)
   )`)
+  await rememberTable('shifts')
   await pool.query(`CREATE TABLE IF NOT EXISTS cash_movements (
     id INT AUTO_INCREMENT PRIMARY KEY, shift_id INT NOT NULL, user_id INT NOT NULL,
     direction ENUM('in','out') NOT NULL, amount DECIMAL(10,2) NOT NULL,
     reason VARCHAR(200) NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (shift_id) REFERENCES shifts(id)
   )`)
+  await rememberTable('cash_movements')
   await add('orders', 'shift_id', 'INT NULL')
   await add('orders', 'payment_reference', 'VARCHAR(80) NULL')
   await pool.query(`CREATE TABLE IF NOT EXISTS order_stock (
     order_id INT NOT NULL, product_id INT NOT NULL, quantity INT NOT NULL,
     PRIMARY KEY (order_id, product_id)
   )`)
+  await rememberTable('order_stock')
   await pool.query(`CREATE TABLE IF NOT EXISTS refunds (
     id INT AUTO_INCREMENT PRIMARY KEY, order_id INT NOT NULL UNIQUE,
     shift_id INT NULL, user_id INT NOT NULL, amount DECIMAL(10,2) NOT NULL,
@@ -48,6 +55,7 @@ export async function migrateLaunchSchema() {
     restock TINYINT NOT NULL, reason VARCHAR(200) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`)
+  await rememberTable('refunds')
   await pool.query('ALTER TABLE refunds MODIFY shift_id INT NULL').catch(() => {})
   await add('expenses', 'user_id', 'INT NULL')
   await add('expenses', 'purchase_id', 'INT NULL UNIQUE')
@@ -59,4 +67,5 @@ export async function migrateLaunchSchema() {
     file_hash CHAR(64) PRIMARY KEY, user_id INT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`)
+  await rememberTable('expense_imports')
 }

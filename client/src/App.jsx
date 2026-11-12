@@ -1,15 +1,16 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { lazy } from 'react'
 import { useAuth } from './context/Auth'
 import Shell from './components/Shell'
 import Login from './pages/Login'
-import Pos from './pages/Pos'
-import Orders from './pages/Orders'
-import Dashboard from './pages/Dashboard'
-import Products from './pages/Products'
-import Customers from './pages/Customers'
-import Stock from './pages/Stock'
-import Inventory from './pages/Inventory'
-import Staff from './pages/Staff'
+const Pos = lazy(() => import('./pages/Pos'))
+const Orders = lazy(() => import('./pages/Orders'))
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Products = lazy(() => import('./pages/Products'))
+const Customers = lazy(() => import('./pages/Customers'))
+const Stock = lazy(() => import('./pages/Stock'))
+const Inventory = lazy(() => import('./pages/Inventory'))
+const Staff = lazy(() => import('./pages/Staff'))
 
 function Guard({ children }) {
   const { user, ready } = useAuth()

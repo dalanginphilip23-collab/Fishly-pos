@@ -9,12 +9,21 @@ const router = Router()
 
 const withItems = async (orders) => {
   if (!orders.length) return orders
-  const [items] = await pool.query('SELECT id, order_id, product_id, name, price, unit_cost, qty FROM order_items WHERE order_id IN (?) ORDER BY id', [orders.map((o) => o.id)])
-  const [refunds] = await pool.query('SELECT order_id, amount, restock, reason, created_at FROM refunds WHERE order_id IN (?)', [orders.map((o) => o.id)])
+  const ids = orders.map(order => order.id)
+  const [[items], [refunds]] = await Promise.all([
+    pool.query('SELECT id, order_id, product_id, name, price, unit_cost, qty FROM order_items WHERE order_id IN (?) ORDER BY id', [ids]),
+    pool.query('SELECT order_id, amount, restock, reason, created_at FROM refunds WHERE order_id IN (?)', [ids]),
+  ])
+  const itemsByOrder = new Map()
+  for (const item of items) {
+    if (!itemsByOrder.has(item.order_id)) itemsByOrder.set(item.order_id, [])
+    itemsByOrder.get(item.order_id).push(item)
+  }
+  const refundsByOrder = new Map(refunds.map(refund => [refund.order_id, refund]))
   return orders.map((o) => ({
     ...o,
-    items: items.filter((i) => i.order_id === o.id),
-    refund: refunds.find((r) => r.order_id === o.id) || null,
+    items: itemsByOrder.get(o.id) || [],
+    refund: refundsByOrder.get(o.id) || null,
   }))
 }
 

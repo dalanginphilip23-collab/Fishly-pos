@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { api } from '../api'
+import { clearMenu } from '../menu-cache'
 
 const AuthContext = createContext(null)
 export const useAuth = () => useContext(AuthContext)
@@ -9,7 +10,7 @@ export function AuthProvider({ children }) {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    const expire = () => setUser(null)
+    const expire = () => { clearMenu(); setUser(null) }
     window.addEventListener('auth:expired', expire)
     return () => window.removeEventListener('auth:expired', expire)
   }, [])
@@ -28,6 +29,7 @@ export function AuthProvider({ children }) {
 
   const logout = () => {
     localStorage.removeItem('fp_token')
+    clearMenu()
     setUser(null)
   }
 

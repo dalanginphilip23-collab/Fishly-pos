@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api'
-import { useCart, availableInCart } from '../context/Cart'
+import { useCart } from '../context/Cart'
 import { money } from '../utils'
 import CartPanel from '../components/CartPanel'
 import Icon from '../components/Icon'
 import Modal from '../components/Modal'
 import ProductPhoto from '../components/ProductPhoto'
+import { availableFromUsage, stockUsage } from '../cart-stock'
+import { readMenu, saveMenu } from '../menu-cache'
 
 // The category card already explains what is included (rice, drink, pieces),
 // so flavor choices only need the flavor word: Regular, Spicy, Barbecue.
@@ -24,14 +26,14 @@ function flavorLabel(product) {
 }
 
 export default function Pos() {
-  const [products, setProducts] = useState([])
-  const [categories, setCategories] = useState([])
+  const [products, setProducts] = useState(() => readMenu()?.products || [])
+  const [categories, setCategories] = useState(() => readMenu()?.categories || [])
   const [q, setQ] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [groupID, setGroupID] = useState(null)
   const [selectedFlavor, setSelectedFlavor] = useState(null)
   const [drawer, setDrawer] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => !readMenu())
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const cartRef = useRef(null)
@@ -41,10 +43,11 @@ export default function Pos() {
     setError('')
     setLoading(true)
     try {
-      const [p, c] = await Promise.all([api('/products'), api('/products/categories')])
-      setProducts(p)
-      setCategories(c)
-      dispatch({ type: 'refresh', products: p })
+      const [nextProducts, nextCategories] = await Promise.all([api('/products'), api('/products/categories')])
+      saveMenu(nextProducts, nextCategories)
+      setProducts(nextProducts)
+      setCategories(nextCategories)
+      dispatch({ type: 'refresh', products: nextProducts })
     } catch (e) { setError(e.message) }
     finally { setLoading(false) }
   }, [dispatch])
@@ -73,10 +76,13 @@ export default function Pos() {
     return () => { root.removeEventListener('keydown', keydown); desktop.removeEventListener('change', resize); if (previous?.isConnected) previous.focus() }
   }, [drawer])
 
-  const qtyInOrder = (id) => lines.find((line) => line.id === id)?.qty || 0
+  const quantities = useMemo(() => new Map(lines.map(line => [line.id, line.qty])), [lines])
+  const usage = useMemo(() => stockUsage(lines), [lines])
+  const remainingById = useMemo(() => new Map(products.map(product => [product.id, availableFromUsage(product, usage)])), [products, usage])
+  const categoriesById = useMemo(() => new Map(categories.map(category => [category.id, category])), [categories])
 
   const addProduct = (product) => {
-    if (availableInCart(product, lines) < 1) {
+    if ((remainingById.get(product.id) || 0) < 1) {
       setNotice(`Not enough shared stock left for ${product.name}. Reduce the order or refresh the menu.`)
       return false
     }
@@ -97,7 +103,7 @@ export default function Pos() {
     const term = q.trim().toLowerCase()
     const byCategory = new Map()
     for (const product of filteredProducts) {
-      const category = categories.find((item) => item.id === product.category_id)
+      const category = categoriesById.get(product.category_id)
       if (!byCategory.has(product.category_id)) {
         byCategory.set(product.category_id, {
           id: product.category_id,
@@ -118,33 +124,28 @@ export default function Pos() {
         // Search results that point at one flavor behave like a single product card,
         // while a category match keeps the full flavor list.
         const prices = visible.map((product) => Number(product.price))
-        const totalStock = visible.reduce((sum, product) => sum + availableInCart(product, lines), 0)
-        const remaining = visible.reduce((sum, product) => sum + availableInCart(product, lines), 0)
-        const inCart = visible.reduce((sum, product) => sum + qtyInOrder(product.id), 0)
+        const remaining = visible.reduce((sum, product) => sum + remainingById.get(product.id), 0)
+        const inCart = visible.reduce((sum, product) => sum + (quantities.get(product.id) || 0), 0)
         return {
           ...group,
           visible,
           minPrice: Math.min(...prices),
           maxPrice: Math.max(...prices),
-          totalStock,
+          totalStock: remaining,
           remaining,
           inCart,
           photo: visible.find((product) => product.photo_url)?.photo_url || null,
         }
       })
       .filter((group) => group.visible.length > 0)
-  }, [filteredProducts, categories, q, lines])
+  }, [filteredProducts, categoriesById, q, quantities, remainingById])
 
   const activeGroup = useMemo(() => groups.find((group) => group.id === groupID) || null, [groups, groupID])
   useEffect(() => {
     if (!activeGroup) return
-    setSelectedFlavor(activeGroup.visible.find((product) => availableInCart(product, lines) > 0)?.id ?? null)
-  }, [activeGroup, lines])
+    setSelectedFlavor(activeGroup.visible.find((product) => (remainingById.get(product.id) || 0) > 0)?.id ?? null)
+  }, [activeGroup, remainingById])
   const choiceCount = groups.reduce((sum, group) => sum + group.visible.length, 0)
-  const pickerCount = activeGroup ? activeGroup.visible.reduce((sum, product) => sum + qtyInOrder(product.id), 0) : 0
-  const pickerTotal = activeGroup
-    ? activeGroup.visible.reduce((sum, product) => sum + Math.round(Number(product.price) * 100) * qtyInOrder(product.id), 0) / 100
-    : 0
 
   // Single-flavor groups (like drinks) skip the picker and add straight away.
   const openGroup = (group) => {
@@ -155,8 +156,11 @@ export default function Pos() {
     setGroupID(group.id)
   }
 
-  const usedCategories = categories.filter((category) => products.some((product) => product.category_id === category.id))
-  const comboCount = products.filter((product) => product.is_combo).length
+  const usedCategories = useMemo(() => {
+    const ids = new Set(products.map(product => product.category_id))
+    return categories.filter(category => ids.has(category.id))
+  }, [categories, products])
+  const comboCount = useMemo(() => products.filter(product => product.is_combo).length, [products])
   const chip = (active) => `rounded-full border px-3 py-1.5 text-xs font-semibold transition ${active ? 'border-wave bg-wave text-white' : 'border-slate-200 bg-white text-slate-600 hover:border-wave hover:text-wave'}`
 
   return (
@@ -177,7 +181,7 @@ export default function Pos() {
         {error && <div role="alert" className="mb-4 rounded-xl bg-red-50 p-4 text-sm text-coral">{error}<button className="ml-3 font-bold underline" onClick={load}>Try again</button></div>}
         <div className="min-h-0 flex-1 overflow-y-auto pb-24 pr-1 lg:pb-3">
           <div className="register-grid gap-3">
-          {loading ? <p role="status" className="col-span-full py-16 text-center text-sm text-slate-500">Loading the menu…</p> : groups.map((group) => {
+          {loading && !products.length ? <p role="status" className="col-span-full py-16 text-center text-sm text-slate-500">Loading the menu…</p> : groups.map((group) => {
             const soldOut = group.totalStock < 1
             const atLimit = !soldOut && group.remaining < 1
             const single = group.visible.length === 1
@@ -232,7 +236,7 @@ export default function Pos() {
           </div>
           <div className="flex flex-wrap justify-center gap-x-14 gap-y-3 rounded-xl bg-foam px-5 py-3">
             {activeGroup.visible.map((product) => {
-              const remaining = availableInCart(product, lines)
+              const remaining = remainingById.get(product.id) || 0
               const selected = selectedFlavor === product.id
               return (
                 <label key={product.id} className={`flex cursor-pointer items-center gap-1.5 text-xs font-semibold ${remaining ? '' : 'cursor-not-allowed opacity-50'}`}>
@@ -249,7 +253,7 @@ export default function Pos() {
             </div>
             <div className="flex shrink-0 gap-2">
               <button type="button" className="btn-ghost text-xs" onClick={() => setGroupID(null)}>Cancel</button>
-              <button type="button" className="btn-primary text-xs" disabled={selectedFlavor === null || !activeGroup.visible.some((product) => product.id === selectedFlavor && availableInCart(product, lines) > 0)} onClick={() => {
+              <button type="button" className="btn-primary text-xs" disabled={selectedFlavor === null || !activeGroup.visible.some((product) => product.id === selectedFlavor && (remainingById.get(product.id) || 0) > 0)} onClick={() => {
                 const product = activeGroup.visible.find((item) => item.id === selectedFlavor)
                 if (product && addProduct(product)) setGroupID(null)
               }}>Confirm</button>

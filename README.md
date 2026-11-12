@@ -40,6 +40,7 @@ The seed creates a single administrator account (`admin` by default, or `ADMIN_U
 
 ```powershell
 cd client
+npm test
 npm run build
 cd ../server
 npm test
@@ -48,3 +49,12 @@ npm test
 ## Structure
 
 The API routes handle HTTP requests, `validation.js` centralizes input and payment rules, `transaction.js` manages connection/commit/rollback cleanup, and `xlsx.js` writes Excel exports. Checkout locks product rows and consolidates duplicate products before checking inventory. The client shares authentication/cart state through contexts and uses reusable modal, icon, and receipt components.
+
+## Performance
+
+- Production builds split pages into on-demand bundles; use `npm run build` for deployment.
+- Register stock availability uses a shared inventory lookup per cart update, including combo ingredients.
+- Receipt and customer searches wait 250 ms after typing and cancel obsolete requests.
+- Product photos use unique upload URLs with seven-day browser caching and asynchronous decoding.
+- Independent report queries run concurrently within the existing database connection pool. Detailed report tables render when expanded.
+- Startup migrations read the schema snapshot once instead of per table, column, and index, and add register/report indexes automatically.

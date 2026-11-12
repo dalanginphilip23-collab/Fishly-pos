@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, download, openFile } from '../api'
 import { money } from '../utils'
@@ -22,6 +22,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
   const expenseRequest = useRef(crypto.randomUUID())
   const expensePanel = useRef(null)
   const openExpense = () => {
@@ -148,6 +149,7 @@ export default function Dashboard() {
     } finally { setExporting(false) }
   }
 
+  const recentSales = useMemo(() => [...(data?.sales || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at) || b.id - a.id).slice(0, 5), [data?.sales])
   const showCosts = Boolean(data?.productSales?.some((item) => item.unit_cost !== null && item.unit_cost !== undefined))
   const cogs = Number(data?.cogs || 0)
 
@@ -200,7 +202,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between gap-3"><h2 id="recent-sales-title" className="text-base font-bold">Recent sales</h2><Link to="/orders" className="text-sm font-semibold text-wave">View receipts →</Link></div>
         <p className="mt-1 text-xs text-slate-500">Latest completed sales in the selected period.</p>
         <ul className="mt-4 divide-y divide-slate-100">
-          {[...data.sales].sort((a, b) => new Date(b.created_at) - new Date(a.created_at) || b.id - a.id).slice(0, 5).map(sale => <li key={sale.id} className="flex items-center gap-3 py-3">
+          {recentSales.map(sale => <li key={sale.id} className="flex items-center gap-3 py-3">
             <span className="rounded-lg bg-sky p-2 text-wave"><Icon name="check" className="!h-4 !w-4" /></span>
             <div className="min-w-0 flex-1"><p className="break-words text-sm font-semibold">{sale.order_no}</p><p className="mt-1 text-xs text-slate-500">{new Date(sale.created_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</p></div>
             <span className="text-sm font-semibold tabular-nums text-wave">{money(sale.total)}</span>
@@ -279,9 +281,9 @@ export default function Dashboard() {
         </form>
         <p className="mt-3 text-xs text-slate-500">Recorded for today.</p>
       </details>
-      <details className="panel p-5">
+      <details open={detailsOpen} className="panel p-5" onToggle={event => setDetailsOpen(event.currentTarget.open)}>
       <summary className="cursor-pointer text-base font-bold">Detailed reports & expense history</summary>
-      <div className="mt-5 space-y-5">
+      {detailsOpen && <div className="mt-5 space-y-5">
       <BestSellers products={data.top} from={data.from} to={data.to} />
       <section className="panel overflow-hidden">
         <header className="p-5"><h2 className="text-lg font-bold">Selling prices & quantities</h2><p className="mt-1 text-xs text-slate-500">The actual price charged at checkout. If a price changes, sales at each price appear separately.</p></header>
@@ -344,7 +346,7 @@ export default function Dashboard() {
           <span>Other: <strong className="text-ocean">{money(data.otherExpenses || 0)}</strong></span>
         </div>
       </section>
-      </div>
+      </div>}
       </details>
       </>}
       </div>

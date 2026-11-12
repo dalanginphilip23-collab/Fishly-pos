@@ -2,46 +2,36 @@
 import { pool } from './db.js'
 import { migrateLaunchSchema } from './launch-migration.js'
 import { migrateMenuCatalog } from './menu-catalog.js'
-
-async function columnExists(table, column) {
-  const [rows] = await pool.query(
-    `SELECT COLUMN_NAME
-     FROM information_schema.COLUMNS
-     WHERE TABLE_SCHEMA = DATABASE()
-       AND TABLE_NAME = ?
-       AND COLUMN_NAME = ?`,
-    [table, column]
-  )
-
-  return rows.length > 0
-}
-
-async function tableExists(table) {
-  const [rows] = await pool.query(
-    `SELECT TABLE_NAME
-     FROM information_schema.TABLES
-     WHERE TABLE_SCHEMA = DATABASE()
-       AND TABLE_NAME = ?
-       AND TABLE_TYPE = 'BASE TABLE'`,
-    [table]
-  )
-
-  return rows.length > 0
-}
+import {
+  hasTable,
+  hasColumn,
+  hasIndex,
+  rememberColumn,
+  rememberIndex,
+  rememberTable,
+} from './schema-info.js'
 
 async function addColumnIfMissing(table, column, definition) {
-  if (!(await tableExists(table))) {
+  if (!(await hasTable(table))) {
     throw new Error(
       `Missing required table: ${table}. Import the original POS schema first.`
     )
   }
 
-  if (!(await columnExists(table, column))) {
+  if (!(await hasColumn(table, column))) {
     await pool.query(
       `ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`
     )
+    await rememberColumn(table, column)
     console.log(`Added ${table}.${column}`)
   }
+}
+
+async function addIndexIfMissing(table, index, definition) {
+  if (await hasIndex(table, index)) return
+  await pool.query(`ALTER TABLE \`${table}\` ADD INDEX \`${index}\` (${definition})`)
+  await rememberIndex(table, index)
+  console.log(`Added ${table}.${index}`)
 }
 
 async function verifyDatabase() {
@@ -74,7 +64,7 @@ async function verifyDatabase() {
   ]
 
   for (const table of requiredTables) {
-    if (!(await tableExists(table))) {
+    if (!(await hasTable(table))) {
       throw new Error(
         `Required table "${table}" not found in "${info.database_name}". ` +
         'Check your DB_NAME and original database schema.'
@@ -112,6 +102,7 @@ export async function migrateSchema() {
         ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB
   `)
+  await rememberTable('customers')
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS stock_adjustments (
@@ -126,6 +117,7 @@ export async function migrateSchema() {
       FOREIGN KEY (user_id) REFERENCES users(id)
     ) ENGINE=InnoDB
   `)
+  await rememberTable('stock_adjustments')
 
   await addColumnIfMissing(
     'products',
@@ -162,6 +154,7 @@ export async function migrateSchema() {
       FOREIGN KEY (item_id) REFERENCES products(id)
     ) ENGINE=InnoDB
   `)
+  await rememberTable('combo_items')
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS suppliers (
@@ -176,6 +169,7 @@ export async function migrateSchema() {
         ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB
   `)
+  await rememberTable('suppliers')
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS purchases (
@@ -191,6 +185,7 @@ export async function migrateSchema() {
       FOREIGN KEY (user_id) REFERENCES users(id)
     ) ENGINE=InnoDB
   `)
+  await rememberTable('purchases')
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS purchase_items (
@@ -205,6 +200,7 @@ export async function migrateSchema() {
       FOREIGN KEY (product_id) REFERENCES products(id)
     ) ENGINE=InnoDB
   `)
+  await rememberTable('purchase_items')
 
   await addColumnIfMissing(
     'expenses', 'category',
@@ -237,6 +233,14 @@ export async function migrateSchema() {
   )
 
   await migrateLaunchSchema()
+
+  // These indexes serve the register's menu query and the sales/expense
+  // reports. They are safe to add after launch migrations so every referenced
+  // column exists on older databases being upgraded.
+  await addIndexIfMissing('products', 'idx_products_active_category', 'active, category_id, id')
+  await addIndexIfMissing('orders', 'idx_orders_created_status', 'created_at, status')
+  await addIndexIfMissing('expenses', 'idx_expenses_created_voided', 'created_at, voided_at')
+
   await migrateMenuCatalog(pool)
 
   console.log('Fishly POS database migration completed successfully.')

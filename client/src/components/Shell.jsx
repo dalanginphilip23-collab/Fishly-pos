@@ -3,7 +3,7 @@ import { useAuth } from '../context/Auth'
 import { useCart } from '../context/Cart'
 import Icon from './Icon'
 import ThemeToggle from './ThemeToggle'
-import { Fragment, useState } from 'react'
+import { Fragment, Suspense, useState } from 'react'
 
 const groups = [
   { id: 'daily', links: [['/', 'Register', 'register'], ['/orders', 'Receipts', 'orders']] },
@@ -51,7 +51,7 @@ export default function Shell() {
         </div>
       </aside>
       <main id="main-content" tabIndex={-1} className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div className="min-h-0 flex-1"><Outlet /></div>
+        <div className="min-h-0 flex-1"><Suspense fallback={<div className="grid h-full min-h-48 place-items-center text-sm text-slate-500" role="status">Loading page…</div>}><Outlet /></Suspense></div>
       </main>
     </div>
   )

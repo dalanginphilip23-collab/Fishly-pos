@@ -2,26 +2,32 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api'
 import Modal from '../components/Modal'
 import Icon from '../components/Icon'
+import useDebouncedValue from '../hooks/useDebouncedValue'
 
 export default function Customers() {
   const [rows, setRows] = useState([])
   const [query, setQuery] = useState('')
+  const search = useDebouncedValue(query.trim())
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [editor, setEditor] = useState(null)
   const [detail, setDetail] = useState(null)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal) => {
     setError('')
     setLoading(true)
     try {
-      const data = await api(`/customers${query.trim() ? `?q=${encodeURIComponent(query.trim())}` : ''}`)
-      setRows(data)
-    } catch (e) { setError(e.message) }
-    finally { setLoading(false) }
-  }, [query])
+      const data = await api(`/customers${search ? `?q=${encodeURIComponent(search)}` : ''}`, { signal })
+      if (!signal?.aborted) setRows(data)
+    } catch (e) { if (e.name !== 'AbortError') setError(e.message) }
+    finally { if (!signal?.aborted) setLoading(false) }
+  }, [search])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    const controller = new AbortController()
+    load(controller.signal)
+    return () => controller.abort()
+  }, [load])
 
   const save = async (form) => {
     try {
@@ -55,7 +61,7 @@ export default function Customers() {
         <section className="panel overflow-hidden">
           <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 p-4">
             <div className="relative min-w-0 flex-1 basis-56"><Icon name="search" className="absolute left-3 top-3 text-slate-400" /><input className="field !pl-10" placeholder="Search name, phone, or email…" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
-            <button className="btn-ghost text-xs" onClick={load}>Refresh</button>
+            <button className="btn-ghost text-xs" onClick={() => load()}>Refresh</button>
           </div>
           {loading ? <div className="p-16 text-center text-sm text-slate-500">Loading customers…</div> : !rows.length ? <div className="p-14 text-center text-sm text-slate-500">No customers yet.</div> : (
             <div className="overflow-x-auto"><table className="w-full text-left text-sm">

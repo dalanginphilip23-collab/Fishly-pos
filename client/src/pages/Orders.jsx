@@ -6,6 +6,7 @@ import Receipt from '../components/Receipt'
 import { useAuth } from '../context/Auth'
 import Icon from '../components/Icon'
 import { businessToday } from '../components/SalesCalendar'
+import useDebouncedValue from '../hooks/useDebouncedValue'
 
 export default function Orders() {
   const { user } = useAuth()
@@ -17,20 +18,22 @@ export default function Orders() {
   const [deleting, setDeleting] = useState(null)
   const [message, setMessage] = useState('')
   const [range, setRange] = useState({ from: businessToday(), to: businessToday(), q: '' })
+  const search = useDebouncedValue(range.q.trim())
   const closeReceipt = useCallback(() => setReceipt(null), [])
 
   const load = useCallback(async (signal) => {
     setLoading(true)
     setError('')
     try {
-      const params = new URLSearchParams({ from: range.from, to: range.to, ...(range.q.trim() && { q: range.q.trim() }) })
-      setOrders(await api(`/orders?${params}`, { signal }))
+      const params = new URLSearchParams({ from: range.from, to: range.to, ...(search && { q: search }) })
+      const rows = await api(`/orders?${params}`, { signal })
+      if (!signal?.aborted) setOrders(rows)
     } catch (e) {
       if (e.name !== 'AbortError') setError(e.message)
     } finally {
       if (!signal?.aborted) setLoading(false)
     }
-  }, [range])
+  }, [range.from, range.to, search])
 
   useEffect(() => {
     const controller = new AbortController()

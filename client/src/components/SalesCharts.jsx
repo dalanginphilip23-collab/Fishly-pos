@@ -1,4 +1,5 @@
 import { money } from '../utils'
+import { memo } from 'react'
 import { displayDate } from './SalesCalendar'
 
 const shortMoney = (value) => `₱${new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(value)}`
@@ -12,7 +13,7 @@ function ChartCard({ title, subtitle, children, className = '' }) {
   </section>
 }
 
-export default function SalesCharts({ data }) {
+function SalesCharts({ data }) {
   const byDay = new Map(data.days.map(day => [day.day, Number(day.revenue)]))
   const start = Date.parse(`${data.from}T00:00:00Z`)
   const end = Date.parse(`${data.to}T00:00:00Z`)
@@ -102,3 +103,5 @@ export default function SalesCharts({ data }) {
     </details>
   </div>
 }
+
+export default memo(SalesCharts)

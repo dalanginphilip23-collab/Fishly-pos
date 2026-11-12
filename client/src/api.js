@@ -38,6 +38,8 @@ async function request(path, { method = 'GET', body, signal, timeout = 30000 } =
     return data
   } catch (error) {
     if (error.name === 'AbortError') {
+      // Navigation/search cancellation is intentional, not a network failure.
+      if (signal?.aborted) throw error
       const timeoutError = new Error('The server did not respond. Check the connection before trying again.')
       timeoutError.code = 'NETWORK'
       throw timeoutError

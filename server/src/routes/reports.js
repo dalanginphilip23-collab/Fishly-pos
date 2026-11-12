@@ -245,27 +245,29 @@ router.get('/summary', manager, async (req, res, next) => {
   try {
     const [from, to] = dateRange(req.query)
     const span = [from, to]
-    const [days] = await pool.query(
-      `SELECT DATE_FORMAT(created_at, '%Y-%m-%d') day, COUNT(*) orders, SUM(total) revenue
-       FROM orders o WHERE ${liveOrders} GROUP BY day ORDER BY day`, span)
-    const [top] = await pool.query(
-      `SELECT p.id product_id, p.name, p.photo_url, SUM(i.qty) qty, SUM(i.qty * i.price) revenue
-       FROM order_items i JOIN orders o ON o.id = i.order_id JOIN products p ON p.id = i.product_id WHERE ${liveOrders}
-       GROUP BY p.id, p.name, p.photo_url ORDER BY qty DESC, revenue DESC, p.id ASC LIMIT 5`, span)
-    const [payments] = await pool.query(
-      `SELECT payment_method method, SUM(total) revenue FROM orders o WHERE ${liveOrders} GROUP BY payment_method`, span)
-    const [productSales] = await pool.query(
-      `SELECT i.product_id, i.name, i.price, i.unit_cost, SUM(i.qty) qty, SUM(i.qty * i.price) subtotal
-       FROM order_items i JOIN orders o ON o.id = i.order_id WHERE ${liveOrders}
-       GROUP BY i.product_id, i.name, i.price, i.unit_cost ORDER BY qty DESC, i.product_id, i.price`, span)
-    const [expenses] = await pool.query(
-      `SELECT * FROM expenses WHERE ${liveExpenses} ORDER BY id DESC`, span)
+    const [[days], [top], [payments], [productSales], [expenses], [sales]] = await Promise.all([
+      pool.query(
+        `SELECT DATE_FORMAT(created_at, '%Y-%m-%d') day, COUNT(*) orders, SUM(total) revenue
+         FROM orders o WHERE ${liveOrders} GROUP BY day ORDER BY day`, span),
+      pool.query(
+        `SELECT p.id product_id, p.name, p.photo_url, SUM(i.qty) qty, SUM(i.qty * i.price) revenue
+         FROM order_items i JOIN orders o ON o.id = i.order_id JOIN products p ON p.id = i.product_id WHERE ${liveOrders}
+         GROUP BY p.id, p.name, p.photo_url ORDER BY qty DESC, revenue DESC, p.id ASC LIMIT 5`, span),
+      pool.query(
+        `SELECT payment_method method, SUM(total) revenue FROM orders o WHERE ${liveOrders} GROUP BY payment_method`, span),
+      pool.query(
+        `SELECT i.product_id, i.name, i.price, i.unit_cost, SUM(i.qty) qty, SUM(i.qty * i.price) subtotal
+         FROM order_items i JOIN orders o ON o.id = i.order_id WHERE ${liveOrders}
+         GROUP BY i.product_id, i.name, i.price, i.unit_cost ORDER BY qty DESC, i.product_id, i.price`, span),
+      pool.query(
+        `SELECT * FROM expenses WHERE ${liveExpenses} ORDER BY id DESC`, span),
+      pool.query(
+        `SELECT o.id, o.order_no, o.created_at, o.total, o.discount, o.payment_method
+         FROM orders o WHERE ${liveOrders} ORDER BY o.id DESC`, span),
+    ])
     const rent = expenses.filter((expense) => expense.category === 'rent').reduce((sum, expense) => sum + Number(expense.amount), 0)
     const purchases = expenses.filter((expense) => expense.category === 'purchase').reduce((sum, expense) => sum + Number(expense.amount), 0)
     const otherExpenses = expenses.filter((expense) => !['rent', 'purchase'].includes(expense.category)).reduce((sum, expense) => sum + Number(expense.amount), 0)
-    const [sales] = await pool.query(
-      `SELECT o.id, o.order_no, o.created_at, o.total, o.discount, o.payment_method
-       FROM orders o WHERE ${liveOrders} ORDER BY o.id DESC`, span)
 
     res.json({
       from, to, ...profitSummary(sales, expenses), ...costOfGoods(productSales),

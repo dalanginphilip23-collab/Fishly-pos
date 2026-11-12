@@ -32,7 +32,8 @@ app.use((_req, res, next) => {
 })
 app.use(cors({ origin: process.env.CLIENT_URL }))
 app.use(express.json({ limit: '64kb' }))
-app.use('/api/uploads/photos', express.static(photoDirectory, { dotfiles: 'deny', index: false, setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff') }))
+// Uploaded photos have unique filenames; replacing a photo creates a new URL.
+app.use('/api/uploads/photos', express.static(photoDirectory, { dotfiles: 'deny', index: false, maxAge: '7d', immutable: true, setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff') }))
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }))
 app.use('/api/auth', authRoutes)

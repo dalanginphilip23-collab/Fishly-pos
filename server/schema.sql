@@ -30,6 +30,7 @@ CREATE TABLE products (
   expiry_date DATE NULL,
   photo_url VARCHAR(255) NULL,
   active TINYINT(1) NOT NULL DEFAULT 1,
+  INDEX idx_products_active_category (active, category_id, id),
   FOREIGN KEY (category_id) REFERENCES categories(id)
 );
 
@@ -136,6 +137,7 @@ CREATE TABLE orders (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_created (created_at),
   INDEX idx_status (status),
+  INDEX idx_orders_created_status (created_at, status),
   INDEX idx_shift (shift_id),
   FOREIGN KEY (cashier_id) REFERENCES users(id),
   FOREIGN KEY (customer_id) REFERENCES customers(id),
@@ -207,6 +209,7 @@ CREATE TABLE expenses (
   voided_by INT NULL,
   void_reason VARCHAR(200) NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_expenses_created_voided (created_at, voided_at),
   FOREIGN KEY (purchase_id) REFERENCES purchases(id),
   FOREIGN KEY (user_id) REFERENCES users(id),
   FOREIGN KEY (voided_by) REFERENCES users(id)
