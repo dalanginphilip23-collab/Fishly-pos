@@ -13,6 +13,7 @@ import { readMenu, saveMenu } from '../menu-cache'
 // so flavor choices only need the flavor word: Regular, Spicy, Barbecue.
 const flavors = [
   [/\bbarbecue\b|\bbbq\b/i, 'Barbecue'],
+  [/\bclassic\b/i, 'Classic'],
   [/\bregular\b/i, 'Regular'],
   [/\bspicy\b/i, 'Spicy'],
   [/\bcoffee\b/i, 'Coffee'],

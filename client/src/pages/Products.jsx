@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
 import { money } from '../utils'
 import ProductPhoto from '../components/ProductPhoto'
@@ -46,6 +46,14 @@ export default function Products() {
   const openEditor = (product) => { setMsg(''); setEditor(product) }
   const editProduct = (product) => { setMsg(''); if (product.is_combo) setComboEditor(product); else setEditor(product) }
   const comboParts = rows.filter((product) => !product.is_combo)
+  // Hide leftover categories from retired menus. The category of the item being
+  // edited stays available so an old hidden product can still be restored.
+  const editorCategories = useMemo(() => {
+    const ids = new Set(rows
+      .filter((product) => product.active || product.id === editor?.id || product.id === comboEditor?.id)
+      .map((product) => product.category_id))
+    return categories.filter((category) => ids.has(category.id))
+  }, [rows, categories, editor, comboEditor])
   const removeProduct = async (product) => {
     if (removing !== null) return
     setRemoving(product.id)
@@ -97,7 +105,7 @@ export default function Products() {
       </section>
       <p className="text-xs leading-relaxed text-slate-500">Select Edit product to update stock, photos, pricing and unit cost. Record daily expenses in Analytics to calculate profit.</p>
     </div>
-    {editor && <ProductEditor product={editor} categories={categories} onClose={() => setEditor(null)} onSaved={(message) => { setEditor(null); setMsg(message); load() }} />}
-    {comboEditor && <ComboEditor combo={comboEditor} products={comboParts} categories={categories} onClose={() => setComboEditor(null)} onSaved={(message) => { setComboEditor(null); setMsg(message); load() }} />}
+    {editor && <ProductEditor product={editor} categories={editorCategories} onClose={() => setEditor(null)} onSaved={(message) => { setEditor(null); setMsg(message); load() }} />}
+    {comboEditor && <ComboEditor combo={comboEditor} products={comboParts} categories={editorCategories} onClose={() => setComboEditor(null)} onSaved={(message) => { setComboEditor(null); setMsg(message); load() }} />}
   </div>
 }
